@@ -28,3 +28,13 @@ def test_icons_exist(client):
     assert res_192.status_code == 200
     res_512 = client.get("/icon-512.png")
     assert res_512.status_code == 200
+
+def test_embedded_reader_and_edit_modal_in_index(client):
+    res = client.get("/")
+    assert res.status_code == 200
+    html = res.data.decode("utf-8")
+    assert "readerView" in html
+    assert "editModal" in html
+    assert "openReader" in html
+    assert "openEditModal" in html
+    assert "iframe" in html

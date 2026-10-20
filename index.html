@@ -19,8 +19,8 @@
       --danger: #e57878;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); padding: 16px; min-height: 100vh; }
-    .container { max-width: 600px; margin: 0 auto; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; }
+    .container { max-width: 650px; margin: 0 auto; padding: 16px; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     h1 { font-size: 1.4rem; }
     
@@ -40,25 +40,52 @@
     .btn-secondary:hover { background: #3a3a42; }
     .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
     .btn-danger:hover { background: rgba(229, 120, 120, 0.1); }
+    .btn-sm { padding: 8px 12px; font-size: 0.9rem; }
     .w-full { width: 100%; }
 
     /* Lista de Obras */
-    .manhua-item { display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: border-color 0.2s; }
+    .manhua-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; margin-bottom: 12px; gap: 12px; transition: border-color 0.2s; }
     .manhua-item:hover { border-color: var(--primary); }
-    .badge { background: #29292e; color: #a8a8b3; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; }
+    .manhua-info { flex: 1; cursor: pointer; text-decoration: none; color: inherit; display: block; }
+    .manhua-info:hover h3 { color: var(--primary-hover); }
+    .badge { background: #29292e; color: #a8a8b3; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; display: inline-block; margin-top: 4px; }
+    
+    .item-actions { display: flex; align-items: center; gap: 8px; }
+    .action-btn { background: #29292e; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.1rem; transition: background 0.2s, border-color 0.2s; }
+    .action-btn:hover { background: #3a3a42; border-color: var(--primary); }
 
     /* Tela de Detalhes / Leitura */
     .detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
     .nav-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
     .chapter-selector { display: flex; gap: 8px; margin-top: 12px; }
     .chapter-selector input { margin-bottom: 0; text-align: center; font-size: 1.1rem; }
+
+    /* Tela de Leitura Embutida (Iframe / Wireframe) */
+    #readerView { width: 100%; height: 100vh; display: none; flex-direction: column; background: #000; }
+    #readerView.active { display: flex; }
+    .reader-toolbar { height: 54px; background: #18181b; border-bottom: 1px solid var(--card-border); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; gap: 8px; z-index: 10; }
+    .reader-title-area { flex: 1; text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 8px; }
+    .reader-title-area h3 { font-size: 0.95rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+    .reader-title-area span { font-size: 0.75rem; color: var(--muted); }
+    .reader-actions { display: flex; align-items: center; gap: 6px; }
+    .reader-frame-container { flex: 1; width: 100%; position: relative; background: #121214; }
+    #readerFrame { width: 100%; height: 100%; border: none; background: #fff; }
+    .frame-hint { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(24, 24, 27, 0.9); border: 1px solid var(--card-border); padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; color: var(--muted); pointer-events: none; }
+
+    /* Modal de Edição */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+    .modal-backdrop.active { display: flex; }
+    .modal-box { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; width: 100%; max-width: 480px; padding: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-header h2 { font-size: 1.2rem; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
   </style>
 </head>
 <body>
-  <div class="container">
 
-    <!-- TELA 1: LISTA DE MANHUAS -->
-    <div id="listView" class="view active">
+  <!-- TELA 1: LISTA DE MANHUAS -->
+  <div id="listView" class="view active">
+    <div class="container">
       <header>
         <h1>Meus Manhuas</h1>
         <button class="btn btn-secondary" onclick="toggleForm()">+ Novo</button>
@@ -77,21 +104,27 @@
 
       <div id="manhuaList"></div>
     </div>
+  </div>
 
-    <!-- TELA 2: GERENCIAMENTO E LEITURA DA OBRA SELECIONADA -->
-    <div id="detailView" class="view">
+  <!-- TELA 2: GERENCIAMENTO E DETALHES -->
+  <div id="detailView" class="view">
+    <div class="container">
       <div class="detail-header">
-        <button class="btn btn-secondary" onclick="showListView()">← Voltar</button>
-        <h2 id="detailTitle" style="font-size: 1.2rem; flex: 1; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"></h2>
+        <button class="btn btn-secondary btn-sm" onclick="showListView()">← Voltar</button>
+        <h2 id="detailTitle" style="font-size: 1.15rem; flex: 1; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"></h2>
+        <button class="action-btn" title="Editar Obra" onclick="openEditModal(selectedManhua.id)">✏️</button>
       </div>
 
       <div class="card" style="text-align: center;">
         <p style="color: var(--muted); font-size: 0.9rem;">Capítulo Atual</p>
         <h1 id="detailChapter" style="font-size: 3rem; margin: 8px 0; color: var(--primary);"></h1>
 
-        <!-- Botão Principal de Leitura -->
-        <a id="btnReadNow" class="btn w-full" style="padding: 16px; font-size: 1.1rem; margin-bottom: 8px;" target="_blank">
-          📖 Ler Capítulo Atual
+        <!-- Botões de Leitura -->
+        <button class="btn w-full" style="padding: 14px; font-size: 1.05rem; margin-bottom: 8px;" onclick="openReader(selectedManhua.id)">
+          📖 Ler no Leitor Embutido
+        </button>
+        <a id="btnExternalRead" class="btn btn-secondary w-full btn-sm" style="margin-bottom: 16px;" target="_blank">
+          ↗ Abrir em Nova Aba Externa
         </a>
 
         <!-- Controles de Avançar / Voltar -->
@@ -112,7 +145,54 @@
 
       <button class="btn btn-danger w-full" onclick="deleteCurrentManhua()">Remover Obra da Lista</button>
     </div>
+  </div>
 
+  <!-- TELA 3: LEITOR EMBUTIDO (IFRAME / WIREFRAME) -->
+  <div id="readerView" class="view">
+    <div class="reader-toolbar">
+      <button class="btn btn-secondary btn-sm" onclick="closeReader()">← Voltar</button>
+      
+      <div class="reader-title-area">
+        <h3 id="readerTitle"></h3>
+        <span id="readerSubtitle"></span>
+      </div>
+
+      <div class="reader-actions">
+        <button class="btn btn-secondary btn-sm" onclick="changeReaderChapter(-1)" title="Capítulo Anterior">◀</button>
+        <button class="btn btn-secondary btn-sm" onclick="changeReaderChapter(1)" title="Próximo Capítulo">▶</button>
+        <a id="btnReaderExternal" class="action-btn" target="_blank" title="Abrir em Nova Aba se bloqueado">↗</a>
+      </div>
+    </div>
+
+    <div class="reader-frame-container">
+      <iframe id="readerFrame" src="about:blank" allowfullscreen></iframe>
+      <div class="frame-hint">Dica: Se o site bloquear o quadro embutido, toque em ↗ para abrir diretamente.</div>
+    </div>
+  </div>
+
+  <!-- MODAL DE EDIÇÃO -->
+  <div id="editModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>Editar Obra</h2>
+        <button class="action-btn" onclick="closeEditModal()">✕</button>
+      </div>
+
+      <input type="hidden" id="editId" />
+      <label>Nome do Manhua</label>
+      <input type="text" id="editTitle" placeholder="Ex: Overgeared" />
+      
+      <label>URL Atual ou Template (com {chapter})</label>
+      <input type="url" id="editUrl" placeholder="https://exemplo.com/manga/chapter-{chapter}/" />
+      
+      <label>Capítulo Atual</label>
+      <input type="number" id="editChapter" placeholder="197" />
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary w-full" onclick="closeEditModal()">Cancelar</button>
+        <button class="btn w-full" onclick="saveEditManhua()">Salvar Alterações</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -122,16 +202,24 @@
 
     let manhuas = [];
     let selectedManhua = null;
+    let readerManhua = null;
+    let previousView = 'listView';
 
     async function loadData() {
       try {
         const res = await fetch('/api/manhuas');
         manhuas = await res.json();
         renderList();
+
         if (selectedManhua) {
           selectedManhua = manhuas.find(m => m.id === selectedManhua.id) || null;
           if (selectedManhua) renderDetails();
           else showListView();
+        }
+
+        if (readerManhua) {
+          readerManhua = manhuas.find(m => m.id === readerManhua.id) || null;
+          if (readerManhua) updateReaderUI();
         }
       } catch (e) {
         console.error('Erro ao carregar dados:', e);
@@ -144,13 +232,17 @@
         listEl.innerHTML = '<p style="text-align: center; color: var(--muted); margin-top: 40px;">Nenhum manhua salvo ainda.</p>';
         return;
       }
+
       listEl.innerHTML = manhuas.map(m => `
-        <div class="card manhua-item" onclick="selectManhua(${m.id})">
-          <div>
-            <h3 style="font-size: 1.05rem; margin-bottom: 4px;">${m.title}</h3>
-            <span class="badge">Capítulo ${m.currentChapter}</span>
+        <div class="card manhua-item">
+          <div class="manhua-info" onclick="openReader(${m.id}, event)" title="Clique para ler o capítulo atual">
+            <h3 style="font-size: 1.05rem; font-weight: 600;">${m.title}</h3>
+            <span class="badge">Capítulo ${m.currentChapter} • Ler agora 📖</span>
           </div>
-          <span style="color: var(--muted); font-size: 1.2rem;">›</span>
+          <div class="item-actions">
+            <button class="action-btn" title="Visualizar e Gerenciar" onclick="selectManhua(${m.id}, event)">👁️</button>
+            <button class="action-btn" title="Editar Obra" onclick="openEditModal(${m.id}, event)">✏️</button>
+          </div>
         </div>
       `).join('');
     }
@@ -167,10 +259,13 @@
 
       if (!title || !rawUrl || isNaN(chapter)) return alert('Preencha todos os campos!');
 
-      const regex = new RegExp(`(?<=[^0-9]|^)${chapter}(?=[^0-9]|$)`);
-      if (!regex.test(rawUrl)) return alert('O número do capítulo não foi localizado na URL.');
+      let urlTemplate = rawUrl;
+      if (!urlTemplate.includes('{chapter}')) {
+        const regex = new RegExp(`(?<=[^0-9]|^)${chapter}(?=[^0-9]|$)`);
+        if (!regex.test(rawUrl)) return alert('O número do capítulo não foi localizado na URL.');
+        urlTemplate = rawUrl.replace(regex, '{chapter}');
+      }
 
-      const urlTemplate = rawUrl.replace(regex, '{chapter}');
       await fetch('/api/manhuas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -184,18 +279,23 @@
       loadData();
     }
 
-    function selectManhua(id) {
+    function selectManhua(id, event) {
+      if (event) event.stopPropagation();
       selectedManhua = manhuas.find(m => m.id === id);
       renderDetails();
-      document.getElementById('listView').classList.remove('active');
-      document.getElementById('detailView').classList.add('active');
+      switchView('detailView');
     }
 
     function showListView() {
       selectedManhua = null;
-      document.getElementById('detailView').classList.remove('active');
-      document.getElementById('listView').classList.add('active');
+      switchView('listView');
       loadData();
+    }
+
+    function switchView(viewId) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      const target = document.getElementById(viewId);
+      if (target) target.classList.add('active');
     }
 
     function renderDetails() {
@@ -204,8 +304,8 @@
       document.getElementById('detailChapter').innerText = selectedManhua.currentChapter;
       const targetUrl = selectedManhua.urlTemplate.replace('{chapter}', selectedManhua.currentChapter);
       
-      const btnRead = document.getElementById('btnReadNow');
-      btnRead.href = targetUrl;
+      const btnExt = document.getElementById('btnExternalRead');
+      btnExt.href = targetUrl;
       document.getElementById('manualChapterInput').value = selectedManhua.currentChapter;
     }
 
@@ -242,6 +342,103 @@
       if (!confirm(`Remover "${selectedManhua.title}" da sua lista?`)) return;
       await fetch(`/api/manhuas/${selectedManhua.id}`, { method: 'DELETE' });
       showListView();
+    }
+
+    /* LEITOR EMBUTIDO */
+    function openReader(id, event) {
+      if (event) event.stopPropagation();
+      readerManhua = manhuas.find(m => m.id === id);
+      if (!readerManhua) return;
+
+      const activeView = document.querySelector('.view.active');
+      if (activeView && activeView.id !== 'readerView') {
+        previousView = activeView.id;
+      }
+
+      switchView('readerView');
+      updateReaderUI();
+    }
+
+    function updateReaderUI() {
+      if (!readerManhua) return;
+      const url = readerManhua.urlTemplate.replace('{chapter}', readerManhua.currentChapter);
+      document.getElementById('readerTitle').innerText = readerManhua.title;
+      document.getElementById('readerSubtitle').innerText = `Capítulo ${readerManhua.currentChapter}`;
+      document.getElementById('btnReaderExternal').href = url;
+      
+      const frame = document.getElementById('readerFrame');
+      if (frame.src !== url) {
+        frame.src = url;
+      }
+    }
+
+    async function changeReaderChapter(delta) {
+      if (!readerManhua) return;
+      const res = await fetch(`/api/manhuas/${readerManhua.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delta })
+      });
+      const data = await res.json();
+      readerManhua = data.item;
+      updateReaderUI();
+    }
+
+    function closeReader() {
+      document.getElementById('readerFrame').src = 'about:blank';
+      switchView(previousView || 'listView');
+      loadData();
+    }
+
+    /* MODAL DE EDIÇÃO */
+    function openEditModal(id, event) {
+      if (event) event.stopPropagation();
+      const item = manhuas.find(m => m.id === id);
+      if (!item) return;
+
+      document.getElementById('editId').value = item.id;
+      document.getElementById('editTitle').value = item.title;
+      document.getElementById('editUrl').value = item.urlTemplate;
+      document.getElementById('editChapter').value = item.currentChapter;
+
+      document.getElementById('editModal').classList.add('active');
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').classList.remove('active');
+    }
+
+    async function saveEditManhua() {
+      const id = parseInt(document.getElementById('editId').value, 10);
+      const title = document.getElementById('editTitle').value.trim();
+      const rawUrl = document.getElementById('editUrl').value.trim();
+      const chapter = parseInt(document.getElementById('editChapter').value, 10);
+
+      if (!title || !rawUrl || isNaN(chapter)) {
+        return alert('Preencha todos os campos corretamente!');
+      }
+
+      let urlTemplate = rawUrl;
+      if (!urlTemplate.includes('{chapter}')) {
+        const regex = new RegExp(`(?<=[^0-9]|^)${chapter}(?=[^0-9]|$)`);
+        if (!regex.test(rawUrl)) {
+          return alert('O número do capítulo não foi localizado na URL informada para gerar o template.');
+        }
+        urlTemplate = rawUrl.replace(regex, '{chapter}');
+      }
+
+      await fetch(`/api/manhuas/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          urlTemplate,
+          chapter
+        })
+      });
+
+      closeEditModal();
+      loadData();
     }
 
     loadData();
