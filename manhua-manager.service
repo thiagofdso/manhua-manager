@@ -1,0 +1,14 @@
+[Unit]
+Description=Manhua Manager Tracker Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Projetos/manhua-manager
+ExecStart=%h/Projetos/manhua-manager/.venv/bin/python3 %h/Projetos/manhua-manager/server.py
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

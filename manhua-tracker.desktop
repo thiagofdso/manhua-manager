@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Manhua Tracker
+Comment=Gerenciador de Manhuas e Leitura
+Exec=sh -c "systemctl --user start manhua-manager.service 2>/dev/null || /home/thiagofdso/Projetos/manhua-manager/app.sh start; for i in $(seq 1 30); do curl -s http://localhost:5000/api/manhuas >/dev/null 2>&1 && break; sleep 0.2; done; xdg-open http://localhost:5000"
+Icon=/home/thiagofdso/Projetos/manhua-manager/icon-192.png
+Terminal=false
+Categories=Utility;Application;
