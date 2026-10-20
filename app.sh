@@ -49,7 +49,7 @@ start_server() {
             echo "Manhua Manager iniciado com sucesso (PID: $PID) em http://localhost:5000"
             return 0
         fi
-        sleep 0.2
+        sleep 0.1
     done
 
     if kill -0 "$PID" 2>/dev/null; then
@@ -75,7 +75,7 @@ stop_server() {
                 if ! kill -0 "$PID" 2>/dev/null; then
                     break
                 fi
-                sleep 0.2
+                sleep 0.1
             done
             if kill -0 "$PID" 2>/dev/null; then
                 kill -9 "$PID" 2>/dev/null || true
@@ -109,16 +109,16 @@ open_app() {
         else
             start_server
         fi
+
+        for i in $(seq 1 30); do
+            if curl -s http://localhost:5000/api/manhuas >/dev/null 2>&1; then
+                break
+            fi
+            sleep 0.1
+        done
     fi
 
-    for i in $(seq 1 30); do
-        if curl -s http://localhost:5000/api/manhuas >/dev/null 2>&1; then
-            break
-        fi
-        sleep 0.2
-    done
-
-    xdg-open http://localhost:5000
+    xdg-open http://localhost:5000 &
 }
 
 case "$1" in
