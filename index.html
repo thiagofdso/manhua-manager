@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Manhua Tracker</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
+  <meta name="theme-color" content="#121214" />
+  <style>
+    :root {
+      --bg: #121214;
+      --card: #202024;
+      --card-border: #323238;
+      --primary: #8257e6;
+      --primary-hover: #9466ff;
+      --text: #e1e1e6;
+      --muted: #a8a8b3;
+      --danger: #e57878;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 16px; min-height: 100vh; }
+    .container { max-width: 600px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    h1 { font-size: 1.4rem; }
+    
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* Cards e Formulário */
+    .card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    label { font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; display: block; }
+    input { width: 100%; padding: 12px; background: #18181b; border: 1px solid var(--card-border); border-radius: 8px; color: #fff; margin-bottom: 12px; font-size: 1rem; }
+    input:focus { outline: none; border-color: var(--primary); }
+    
+    .btn { background: var(--primary); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn:hover { background: var(--primary-hover); }
+    .btn:active { opacity: 0.85; }
+    .btn-secondary { background: #29292e; color: #fff; }
+    .btn-secondary:hover { background: #3a3a42; }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+    .btn-danger:hover { background: rgba(229, 120, 120, 0.1); }
+    .w-full { width: 100%; }
+
+    /* Lista de Obras */
+    .manhua-item { display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: border-color 0.2s; }
+    .manhua-item:hover { border-color: var(--primary); }
+    .badge { background: #29292e; color: #a8a8b3; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; }
+
+    /* Tela de Detalhes / Leitura */
+    .detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .nav-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
+    .chapter-selector { display: flex; gap: 8px; margin-top: 12px; }
+    .chapter-selector input { margin-bottom: 0; text-align: center; font-size: 1.1rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- TELA 1: LISTA DE MANHUAS -->
+    <div id="listView" class="view active">
+      <header>
+        <h1>Meus Manhuas</h1>
+        <button class="btn btn-secondary" onclick="toggleForm()">+ Novo</button>
+      </header>
+
+      <!-- Formulário de Cadastro (Recolhível) -->
+      <div id="formSection" class="card" style="display: none;">
+        <label>Nome do Manhua</label>
+        <input type="text" id="title" placeholder="Ex: Overgeared" />
+        <label>URL do Capítulo Atual</label>
+        <input type="url" id="rawUrl" placeholder="https://exemplo.com/manga/chapter-197/" />
+        <label>Capítulo Atual</label>
+        <input type="number" id="chapter" placeholder="197" />
+        <button class="btn w-full" onclick="saveNewManhua()">Cadastrar</button>
+      </div>
+
+      <div id="manhuaList"></div>
+    </div>
+
+    <!-- TELA 2: GERENCIAMENTO E LEITURA DA OBRA SELECIONADA -->
+    <div id="detailView" class="view">
+      <div class="detail-header">
+        <button class="btn btn-secondary" onclick="showListView()">← Voltar</button>
+        <h2 id="detailTitle" style="font-size: 1.2rem; flex: 1; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"></h2>
+      </div>
+
+      <div class="card" style="text-align: center;">
+        <p style="color: var(--muted); font-size: 0.9rem;">Capítulo Atual</p>
+        <h1 id="detailChapter" style="font-size: 3rem; margin: 8px 0; color: var(--primary);"></h1>
+
+        <!-- Botão Principal de Leitura -->
+        <a id="btnReadNow" class="btn w-full" style="padding: 16px; font-size: 1.1rem; margin-bottom: 8px;" target="_blank">
+          📖 Ler Capítulo Atual
+        </a>
+
+        <!-- Controles de Avançar / Voltar -->
+        <div class="nav-buttons">
+          <button class="btn btn-secondary" onclick="changeSelectedChapter(-1)">◀ Anterior</button>
+          <button class="btn btn-secondary" onclick="changeSelectedChapter(1)">Próximo ▶</button>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--card-border); margin: 16px 0;" />
+
+        <!-- Seleção Direta de Capítulo -->
+        <label>Ir diretamente para o capítulo:</label>
+        <div class="chapter-selector">
+          <input type="number" id="manualChapterInput" placeholder="Nº" />
+          <button class="btn btn-secondary" onclick="setManualChapter()">Definir</button>
+        </div>
+      </div>
+
+      <button class="btn btn-danger w-full" onclick="deleteCurrentManhua()">Remover Obra da Lista</button>
+    </div>
+
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(console.error);
+    }
+
+    let manhuas = [];
+    let selectedManhua = null;
+
+    async function loadData() {
+      try {
+        const res = await fetch('/api/manhuas');
+        manhuas = await res.json();
+        renderList();
+        if (selectedManhua) {
+          selectedManhua = manhuas.find(m => m.id === selectedManhua.id) || null;
+          if (selectedManhua) renderDetails();
+          else showListView();
+        }
+      } catch (e) {
+        console.error('Erro ao carregar dados:', e);
+      }
+    }
+
+    function renderList() {
+      const listEl = document.getElementById('manhuaList');
+      if (!manhuas.length) {
+        listEl.innerHTML = '<p style="text-align: center; color: var(--muted); margin-top: 40px;">Nenhum manhua salvo ainda.</p>';
+        return;
+      }
+      listEl.innerHTML = manhuas.map(m => `
+        <div class="card manhua-item" onclick="selectManhua(${m.id})">
+          <div>
+            <h3 style="font-size: 1.05rem; margin-bottom: 4px;">${m.title}</h3>
+            <span class="badge">Capítulo ${m.currentChapter}</span>
+          </div>
+          <span style="color: var(--muted); font-size: 1.2rem;">›</span>
+        </div>
+      `).join('');
+    }
+
+    function toggleForm() {
+      const form = document.getElementById('formSection');
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+
+    async function saveNewManhua() {
+      const title = document.getElementById('title').value.trim();
+      const rawUrl = document.getElementById('rawUrl').value.trim();
+      const chapter = parseInt(document.getElementById('chapter').value, 10);
+
+      if (!title || !rawUrl || isNaN(chapter)) return alert('Preencha todos os campos!');
+
+      const regex = new RegExp(`(?<=[^0-9]|^)${chapter}(?=[^0-9]|$)`);
+      if (!regex.test(rawUrl)) return alert('O número do capítulo não foi localizado na URL.');
+
+      const urlTemplate = rawUrl.replace(regex, '{chapter}');
+      await fetch('/api/manhuas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, urlTemplate, currentChapter: chapter })
+      });
+
+      toggleForm();
+      document.getElementById('title').value = '';
+      document.getElementById('rawUrl').value = '';
+      document.getElementById('chapter').value = '';
+      loadData();
+    }
+
+    function selectManhua(id) {
+      selectedManhua = manhuas.find(m => m.id === id);
+      renderDetails();
+      document.getElementById('listView').classList.remove('active');
+      document.getElementById('detailView').classList.add('active');
+    }
+
+    function showListView() {
+      selectedManhua = null;
+      document.getElementById('detailView').classList.remove('active');
+      document.getElementById('listView').classList.add('active');
+      loadData();
+    }
+
+    function renderDetails() {
+      if (!selectedManhua) return;
+      document.getElementById('detailTitle').innerText = selectedManhua.title;
+      document.getElementById('detailChapter').innerText = selectedManhua.currentChapter;
+      const targetUrl = selectedManhua.urlTemplate.replace('{chapter}', selectedManhua.currentChapter);
+      
+      const btnRead = document.getElementById('btnReadNow');
+      btnRead.href = targetUrl;
+      document.getElementById('manualChapterInput').value = selectedManhua.currentChapter;
+    }
+
+    async function changeSelectedChapter(delta) {
+      if (!selectedManhua) return;
+      const res = await fetch(`/api/manhuas/${selectedManhua.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delta })
+      });
+      const data = await res.json();
+      selectedManhua = data.item;
+      renderDetails();
+    }
+
+    async function setManualChapter() {
+      if (!selectedManhua) return;
+      const input = document.getElementById('manualChapterInput');
+      const val = parseInt(input.value, 10);
+      if (isNaN(val) || val < 1) return;
+
+      const res = await fetch(`/api/manhuas/${selectedManhua.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chapter: val })
+      });
+      const data = await res.json();
+      selectedManhua = data.item;
+      renderDetails();
+    }
+
+    async function deleteCurrentManhua() {
+      if (!selectedManhua) return;
+      if (!confirm(`Remover "${selectedManhua.title}" da sua lista?`)) return;
+      await fetch(`/api/manhuas/${selectedManhua.id}`, { method: 'DELETE' });
+      showListView();
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
