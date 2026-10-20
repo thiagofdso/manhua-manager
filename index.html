@@ -51,7 +51,7 @@
     .badge { background: #29292e; color: #a8a8b3; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; display: inline-block; margin-top: 4px; }
     
     .item-actions { display: flex; align-items: center; gap: 8px; }
-    .action-btn { background: #29292e; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.1rem; transition: background 0.2s, border-color 0.2s; }
+    .action-btn { background: #29292e; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.1rem; transition: background 0.2s, border-color 0.2s; text-decoration: none; }
     .action-btn:hover { background: #3a3a42; border-color: var(--primary); }
 
     /* Tela de Detalhes / Leitura */
@@ -60,17 +60,25 @@
     .chapter-selector { display: flex; gap: 8px; margin-top: 12px; }
     .chapter-selector input { margin-bottom: 0; text-align: center; font-size: 1.1rem; }
 
-    /* Tela de Leitura Embutida (Iframe / Wireframe) */
-    #readerView { width: 100%; height: 100vh; display: none; flex-direction: column; background: #000; }
+    /* Tela de Leitura Contínua Nativa (Webtoon/Manhua) */
+    #readerView { width: 100%; min-height: 100vh; display: none; flex-direction: column; background: #0a0a0c; }
     #readerView.active { display: flex; }
-    .reader-toolbar { height: 54px; background: #18181b; border-bottom: 1px solid var(--card-border); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; gap: 8px; z-index: 10; }
+    .reader-toolbar { position: sticky; top: 0; height: 54px; background: rgba(24, 24, 27, 0.95); backdrop-filter: blur(8px); border-bottom: 1px solid var(--card-border); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; gap: 8px; z-index: 100; }
     .reader-title-area { flex: 1; text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 8px; }
-    .reader-title-area h3 { font-size: 0.95rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
-    .reader-title-area span { font-size: 0.75rem; color: var(--muted); }
+    .reader-title-area h3 { font-size: 0.95rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+    .reader-title-area span { font-size: 0.75rem; color: var(--primary-hover); }
     .reader-actions { display: flex; align-items: center; gap: 6px; }
-    .reader-frame-container { flex: 1; width: 100%; position: relative; background: #121214; }
-    #readerFrame { width: 100%; height: 100%; border: none; background: #fff; }
-    .frame-hint { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(24, 24, 27, 0.9); border: 1px solid var(--card-border); padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; color: var(--muted); pointer-events: none; }
+    
+    .reader-scroll-area { width: 100%; flex: 1; display: flex; flex-direction: column; align-items: center; }
+    #readerImagesContainer { width: 100%; display: flex; flex-direction: column; align-items: center; }
+    .chapter-page-img { max-width: 800px; width: 100%; display: block; margin: 0 auto; height: auto; background: #121214; }
+    
+    .reader-status-msg { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 1rem; width: 100%; max-width: 500px; margin: 0 auto; }
+    .reader-spinner { width: 36px; height: 36px; border: 3px solid rgba(130, 87, 230, 0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .reader-footer { width: 100%; max-width: 800px; margin: 30px auto 60px; padding: 20px 16px; text-align: center; }
+    .reader-footer-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
 
     /* Modal de Edição */
     .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
@@ -121,10 +129,10 @@
 
         <!-- Botões de Leitura -->
         <button class="btn w-full" style="padding: 14px; font-size: 1.05rem; margin-bottom: 8px;" onclick="openReader(selectedManhua.id)">
-          📖 Ler no Leitor Embutido
+          📖 Ler no Leitor Nativo
         </button>
         <a id="btnExternalRead" class="btn btn-secondary w-full btn-sm" style="margin-bottom: 16px;" target="_blank">
-          ↗ Abrir em Nova Aba Externa
+          ↗ Abrir no Site Original
         </a>
 
         <!-- Controles de Avançar / Voltar -->
@@ -147,7 +155,7 @@
     </div>
   </div>
 
-  <!-- TELA 3: LEITOR EMBUTIDO (IFRAME / WIREFRAME) -->
+  <!-- TELA 3: LEITOR NATIVO CONTÍNUO (WEBTOON / MANHUA) -->
   <div id="readerView" class="view">
     <div class="reader-toolbar">
       <button class="btn btn-secondary btn-sm" onclick="closeReader()">← Voltar</button>
@@ -160,13 +168,27 @@
       <div class="reader-actions">
         <button class="btn btn-secondary btn-sm" onclick="changeReaderChapter(-1)" title="Capítulo Anterior">◀</button>
         <button class="btn btn-secondary btn-sm" onclick="changeReaderChapter(1)" title="Próximo Capítulo">▶</button>
-        <a id="btnReaderExternal" class="action-btn" target="_blank" title="Abrir em Nova Aba se bloqueado">↗</a>
+        <a id="btnReaderExternal" class="action-btn" target="_blank" title="Abrir página original no navegador">↗</a>
       </div>
     </div>
 
-    <div class="reader-frame-container">
-      <iframe id="readerFrame" src="about:blank" allowfullscreen></iframe>
-      <div class="frame-hint">Dica: Se o site bloquear o quadro embutido, toque em ↗ para abrir diretamente.</div>
+    <div class="reader-scroll-area">
+      <div id="readerLoading" class="reader-status-msg">
+        <div class="reader-spinner"></div>
+        <p>Extraindo páginas do capítulo...</p>
+      </div>
+
+      <div id="readerError" class="reader-status-msg" style="display: none;"></div>
+
+      <div id="readerImagesContainer"></div>
+
+      <div id="readerFooter" class="reader-footer" style="display: none;">
+        <p style="color: var(--muted); font-size: 0.9rem;">Fim do capítulo</p>
+        <div class="reader-footer-nav">
+          <button class="btn btn-secondary" onclick="changeReaderChapter(-1)">◀ Anterior</button>
+          <button class="btn" onclick="changeReaderChapter(1)">Próximo Capítulo ▶</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -219,7 +241,7 @@
 
         if (readerManhua) {
           readerManhua = manhuas.find(m => m.id === readerManhua.id) || null;
-          if (readerManhua) updateReaderUI();
+          if (readerManhua) updateReaderHeader();
         }
       } catch (e) {
         console.error('Erro ao carregar dados:', e);
@@ -344,7 +366,7 @@
       showListView();
     }
 
-    /* LEITOR EMBUTIDO */
+    /* LEITOR NATIVO CONTÍNUO (WEBTOON / MANHUA) */
     function openReader(id, event) {
       if (event) event.stopPropagation();
       readerManhua = manhuas.find(m => m.id === id);
@@ -356,19 +378,64 @@
       }
 
       switchView('readerView');
-      updateReaderUI();
+      loadChapterPages();
     }
 
-    function updateReaderUI() {
+    function updateReaderHeader() {
       if (!readerManhua) return;
       const url = readerManhua.urlTemplate.replace('{chapter}', readerManhua.currentChapter);
       document.getElementById('readerTitle').innerText = readerManhua.title;
       document.getElementById('readerSubtitle').innerText = `Capítulo ${readerManhua.currentChapter}`;
       document.getElementById('btnReaderExternal').href = url;
-      
-      const frame = document.getElementById('readerFrame');
-      if (frame.src !== url) {
-        frame.src = url;
+    }
+
+    async function loadChapterPages() {
+      if (!readerManhua) return;
+      updateReaderHeader();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      const container = document.getElementById('readerImagesContainer');
+      const loading = document.getElementById('readerLoading');
+      const errorEl = document.getElementById('readerError');
+      const footer = document.getElementById('readerFooter');
+
+      container.innerHTML = '';
+      loading.style.display = 'block';
+      errorEl.style.display = 'none';
+      footer.style.display = 'none';
+
+      const targetUrl = readerManhua.urlTemplate.replace('{chapter}', readerManhua.currentChapter);
+
+      try {
+        const res = await fetch(`/api/chapter-images?url=${encodeURIComponent(targetUrl)}`);
+        const data = await res.json();
+
+        loading.style.display = 'none';
+
+        if (data.status === 'ok' && data.images && data.images.length > 0) {
+          container.innerHTML = data.images.map((imgUrl, idx) => `
+            <img 
+              src="/api/proxy-image?url=${encodeURIComponent(imgUrl)}" 
+              loading="lazy" 
+              class="chapter-page-img" 
+              alt="Página ${idx + 1}"
+            />
+          `).join('');
+          footer.style.display = 'block';
+        } else {
+          errorEl.style.display = 'block';
+          errorEl.innerHTML = `
+            <p style="margin-bottom: 12px;">Não foi possível extrair as páginas deste capítulo automaticamente.</p>
+            <a href="${targetUrl}" target="_blank" class="btn btn-secondary">Abrir no Site Original ↗</a>
+          `;
+        }
+      } catch (err) {
+        loading.style.display = 'none';
+        errorEl.style.display = 'block';
+        errorEl.innerHTML = `
+          <p style="margin-bottom: 12px; color: var(--danger);">Erro de conexão ao carregar páginas.</p>
+          <a href="${targetUrl}" target="_blank" class="btn btn-secondary">Abrir no Site Original ↗</a>
+        `;
       }
     }
 
@@ -381,11 +448,11 @@
       });
       const data = await res.json();
       readerManhua = data.item;
-      updateReaderUI();
+      loadChapterPages();
     }
 
     function closeReader() {
-      document.getElementById('readerFrame').src = 'about:blank';
+      document.getElementById('readerImagesContainer').innerHTML = '';
       switchView(previousView || 'listView');
       loadData();
     }
