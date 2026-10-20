@@ -14,6 +14,9 @@ if [ ! -f "$PYTHON" ]; then
 fi
 
 is_running() {
+    if systemctl --user is-active --quiet manhua-manager.service 2>/dev/null; then
+        return 0
+    fi
     if [ -f "$PID_FILE" ]; then
         PID="$(cat "$PID_FILE" 2>/dev/null || true)"
         if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
@@ -31,7 +34,7 @@ is_running() {
 
 start_server() {
     if is_running; then
-        echo "Manhua Manager já está em execução (PID: $(cat "$PID_FILE"))."
+        echo "Manhua Manager já está em execução."
         return 0
     fi
 
@@ -59,6 +62,10 @@ start_server() {
 }
 
 stop_server() {
+    if systemctl --user is-active --quiet manhua-manager.service 2>/dev/null; then
+        systemctl --user stop manhua-manager.service
+    fi
+
     if [ -f "$PID_FILE" ]; then
         PID="$(cat "$PID_FILE" 2>/dev/null || true)"
         if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
@@ -89,10 +96,29 @@ stop_server() {
 
 status_server() {
     if is_running; then
-        echo "Manhua Manager está RODANDO (PID: $(cat "$PID_FILE")). Acesse: http://localhost:5000"
+        echo "Manhua Manager está RODANDO. Acesse: http://localhost:5000"
     else
         echo "Manhua Manager está PARADO."
     fi
+}
+
+open_app() {
+    if ! is_running; then
+        if systemctl --user start manhua-manager.service 2>/dev/null; then
+            echo "Iniciado via systemd."
+        else
+            start_server
+        fi
+    fi
+
+    for i in $(seq 1 30); do
+        if curl -s http://localhost:5000/api/manhuas >/dev/null 2>&1; then
+            break
+        fi
+        sleep 0.2
+    done
+
+    xdg-open http://localhost:5000
 }
 
 case "$1" in
@@ -109,8 +135,11 @@ case "$1" in
         echo "Iniciando em primeiro plano (Ctrl+C para sair)..."
         exec "$PYTHON" "$DIR/server.py"
         ;;
+    open)
+        open_app
+        ;;
     *)
-        echo "Uso: $0 {start|stop|status|run}"
+        echo "Uso: $0 {start|stop|status|run|open}"
         exit 1
         ;;
 esac

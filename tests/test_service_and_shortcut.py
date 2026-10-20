@@ -21,4 +21,4 @@ def test_desktop_shortcut_content():
         content = open(desktop_file, "r", encoding="utf-8").read()
         assert "[Desktop Entry]" in content
         assert "Name=Manhua Tracker" in content
-        assert "http://localhost:5000" in content
+        assert "app.sh open" in content
