@@ -83,6 +83,43 @@ def delete_manhua(item_id):
     save_data(data)
     return jsonify({"status": "ok"})
 
+def extract_manhuatop_images(html: str) -> list[str]:
+    raw_imgs = re.findall(r'<img[^>]+src=[\"\']([^\"\']+)[\"\'][^>]*class=[\"\'][^\"\']*wp-manga-chapter-img[^\"\']*[\"\']', html, re.IGNORECASE)
+    raw_imgs += re.findall(r'<img[^>]+class=[\"\'][^\"\']*wp-manga-chapter-img[^\"\']*[\"\'][^>]+src=[\"\']([^\"\']+)[\"\']', html, re.IGNORECASE)
+
+    seen = set()
+    chapter_imgs = []
+    for img in raw_imgs:
+        clean = img.strip()
+        if clean and clean not in seen and "about_manhuatop" not in clean:
+            seen.add(clean)
+            chapter_imgs.append(clean)
+    return chapter_imgs
+
+def extract_asurascans_images(html: str) -> list[str]:
+    pattern = r'https://cdn\.asurascans\.com/asura-images/chapters-merged/[^\s"\'<>&]+(?:\?[^\s"\'<>&]*)?'
+    raw_matches = re.findall(pattern, html)
+    return list(dict.fromkeys(raw_matches))
+
+def extract_generic_images(html: str) -> list[str]:
+    imgs = extract_manhuatop_images(html)
+    if imgs:
+        return imgs
+    return extract_asurascans_images(html)
+
+def extract_chapter_images_by_domain(html: str, target_url: str) -> list[str]:
+    parsed = urllib.parse.urlparse(target_url)
+    domain = parsed.netloc.lower()
+    if domain.startswith("www."):
+        domain = domain[4:]
+
+    extractors = {
+        "asurascans.com": extract_asurascans_images,
+        "manhuatop.org": extract_manhuatop_images,
+    }
+    extractor = extractors.get(domain, extract_generic_images)
+    return extractor(html)
+
 @app.route("/api/chapter-images", methods=["GET"])
 def get_chapter_images():
     target_url = request.args.get("url")

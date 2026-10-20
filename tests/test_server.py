@@ -113,3 +113,30 @@ def test_proxy_image_endpoint(client):
         assert res.status_code == 200
         assert res.data == mock_image_bytes
         assert res.content_type == "image/jpeg"
+
+def test_extract_manhuatop_images():
+    html = """
+    <img src="https://manhuatop.org/about_manhuatop.webp" class="wp-manga-chapter-img" />
+    <img src="https://s2.manhuatop.org/page1.jpg" class="wp-manga-chapter-img" />
+    <img src="https://s2.manhuatop.org/page2.jpg" class="wp-manga-chapter-img" />
+    """
+    imgs = server.extract_manhuatop_images(html)
+    assert imgs == ["https://s2.manhuatop.org/page1.jpg", "https://s2.manhuatop.org/page2.jpg"]
+
+def test_extract_asurascans_images():
+    html = """
+    <img src="https://cdn.asurascans.com/asura-images/covers/overgeared.905990.webp" />
+    <img src="https://cdn.asurascans.com/asura-images/chapters-merged/overgeared/162615/001.webp?v=1791877385" alt="Page 1" class="w-full" />
+    <img src="https://cdn.asurascans.com/asura-images/chapters-merged/overgeared/162615/002.webp?v=1791877385" alt="Page 2" class="w-full" />
+    """
+    imgs = server.extract_asurascans_images(html)
+    assert len(imgs) == 2
+    assert imgs[0] == "https://cdn.asurascans.com/asura-images/chapters-merged/overgeared/162615/001.webp?v=1791877385"
+    assert imgs[1] == "https://cdn.asurascans.com/asura-images/chapters-merged/overgeared/162615/002.webp?v=1791877385"
+
+def test_extract_chapter_images_by_domain_dispatch():
+    asura_html = '<img src="https://cdn.asurascans.com/asura-images/chapters-merged/test/1/001.webp" />'
+    imgs = server.extract_chapter_images_by_domain(asura_html, "https://asurascans.com/comics/test/chapter/1")
+    assert len(imgs) == 1
+    assert "001.webp" in imgs[0]
+
