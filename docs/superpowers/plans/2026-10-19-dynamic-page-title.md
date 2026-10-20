@@ -24,7 +24,7 @@
 **Interfaces:**
 - Produces: Teste automatizado verificando a presença da lógica de título dinâmico em `index.html`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Adicionar em `tests/test_pwa_assets.py`:
 ```python
@@ -41,12 +41,12 @@ def test_dynamic_page_title_in_index():
     assert "document.title = 'Manhua Tracker'" in content
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_pwa_assets.py -k "test_dynamic_page_title" -v`  
 Expected: FAIL (AssertionError)
 
-- [ ] **Step 3: Commit test change**
+- [x] **Step 3: Commit test change**
 
 ```bash
 git add tests/test_pwa_assets.py
@@ -63,7 +63,7 @@ git commit -m "test: add test for dynamic page title in index.html"
 **Interfaces:**
 - Produces: `document.title` atualizado em `updateReaderHeader`, `renderDetails`, `showListView` e `closeReader`.
 
-- [ ] **Step 1: Implement minimal changes in `index.html`**
+- [x] **Step 1: Implement minimal changes in `index.html`**
 
 No `index.html`:
 1. Em `showListView()`:
@@ -105,12 +105,12 @@ No `index.html`:
    }
    ```
 
-- [ ] **Step 2: Run test to verify it passes**
+- [x] **Step 2: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_pwa_assets.py -k "test_dynamic_page_title" -v`  
 Expected: PASS
 
-- [ ] **Step 3: Commit implementation**
+- [x] **Step 3: Commit implementation**
 
 ```bash
 git add index.html
@@ -124,12 +124,12 @@ git commit -m "feat: dynamically update page title with manhua title and chapter
 **Files:**
 - N/A
 
-- [ ] **Step 1: Run full test suite**
+- [x] **Step 1: Run full test suite**
 
 Run: `make test`  
 Expected: 24 passed in all test suites.
 
-- [ ] **Step 2: Restart systemd user service**
+- [x] **Step 2: Restart systemd user service**
 
 Run: `systemctl --user restart manhua-manager.service`  
 Run: `systemctl --user status manhua-manager.service --no-pager`  
