@@ -29,7 +29,7 @@
   - `extract_asurascans_images(html: str) -> list[str]`
   - `extract_chapter_images_by_domain(html: str, target_url: str) -> list[str]`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Adicionar em `tests/test_server.py`:
 ```python
@@ -60,12 +60,12 @@ def test_extract_chapter_images_by_domain_dispatch():
     assert "001.webp" in imgs[0]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_server.py -k "extract_" -v`  
 Expected: FAIL with `AttributeError: module 'server' has no attribute 'extract_manhuatop_images'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Implementar em `server.py`:
 ```python
@@ -109,12 +109,12 @@ def extract_chapter_images_by_domain(html: str, target_url: str) -> list[str]:
     return extractor(html)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_server.py -k "extract_" -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server.py tests/test_server.py
@@ -135,7 +135,7 @@ git commit -m "feat: add domain-based image extractors for manhuatop and asurasc
   - `GET /api/chapter-images?url=...` utilizando o despachante por domínio.
   - `GET /api/proxy-image?url=...` utilizando cabeçalho `Referer: https://asurascans.com/` para domínios Asura Scans.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Adicionar em `tests/test_server.py`:
 ```python
@@ -179,12 +179,12 @@ def test_proxy_image_asurascans_referer(client):
         assert req_arg.get_header("Referer") == "https://asurascans.com/"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_server.py -k "asurascans" -v`  
 Expected: FAIL on `test_proxy_image_asurascans_referer` (Referer is currently `https://cdn.asurascans.com/`)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 No `server.py`:
 Atualizar `get_chapter_images()`:
@@ -247,12 +247,12 @@ def proxy_image():
         return jsonify({"error": str(e)}), 500
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_server.py -v`  
 Expected: PASS (all tests in `test_server.py`)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server.py tests/test_server.py
@@ -270,7 +270,7 @@ git commit -m "feat: route chapter extraction and proxy referer by domain"
 **Interfaces:**
 - Produces: Atualização de Overgeared para Asura Scans no `database.json`.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 Atualizar `tests/test_database_seed.py`:
 ```python
@@ -286,12 +286,12 @@ def test_database_initial_seed_content():
     assert "https://asurascans.com/comics/overgeared-11fe7da3/chapter/{chapter}" in overgeared["urlTemplate"]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_database_seed.py -v`  
 Expected: FAIL
 
-- [ ] **Step 3: Update database.json**
+- [x] **Step 3: Update database.json**
 
 Atualizar `database.json`:
 ```json
@@ -306,12 +306,12 @@ Atualizar `database.json`:
 ]
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_database_seed.py -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add database.json tests/test_database_seed.py
@@ -325,18 +325,18 @@ git commit -m "chore: update overgeared url template and chapter in database.jso
 **Files:**
 - N/A
 
-- [ ] **Step 1: Run full test suite**
+- [x] **Step 1: Run full test suite**
 
 Run: `make test`  
 Expected: PASS all tests with 0 failures.
 
-- [ ] **Step 2: Restart systemd user service**
+- [x] **Step 2: Restart systemd user service**
 
 Run: `systemctl --user restart manhua-manager.service`  
 Run: `systemctl --user status manhua-manager.service`  
 Expected: `Active: active (running)`
 
-- [ ] **Step 3: Test live API response**
+- [x] **Step 3: Test live API response**
 
 Run: `curl -s http://localhost:5000/api/manhuas | grep -o 'https://asurascans.com[^"]*'`  
 Expected: `https://asurascans.com/comics/overgeared-11fe7da3/chapter/{chapter}`
