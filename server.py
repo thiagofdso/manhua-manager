@@ -1,7 +1,10 @@
 import os
 import json
 import time
-from flask import Flask, request, jsonify, send_from_directory
+import re
+import urllib.request
+import urllib.parse
+from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -79,6 +82,66 @@ def delete_manhua(item_id):
     data = [m for m in load_data() if m["id"] != item_id]
     save_data(data)
     return jsonify({"status": "ok"})
+
+@app.route("/api/chapter-images", methods=["GET"])
+def get_chapter_images():
+    target_url = request.args.get("url")
+    if not target_url:
+        return jsonify({"error": "Parâmetro url é obrigatório"}), 400
+
+    try:
+        req = urllib.request.Request(
+            target_url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+
+        raw_imgs = re.findall(r'<img[^>]+src=[\"\']([^\"\']+)[\"\'][^>]*class=[\"\'][^\"\']*wp-manga-chapter-img[^\"\']*[\"\']', html, re.IGNORECASE)
+        raw_imgs += re.findall(r'<img[^>]+class=[\"\'][^\"\']*wp-manga-chapter-img[^\"\']*[\"\'][^>]+src=[\"\']([^\"\']+)[\"\']', html, re.IGNORECASE)
+
+        seen = set()
+        chapter_imgs = []
+        for img in raw_imgs:
+            clean = img.strip()
+            if clean and clean not in seen and "about_manhuatop" not in clean:
+                seen.add(clean)
+                chapter_imgs.append(clean)
+
+        return jsonify({
+            "status": "ok",
+            "count": len(chapter_imgs),
+            "images": chapter_imgs
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "images": []}), 500
+
+@app.route("/api/proxy-image", methods=["GET"])
+def proxy_image():
+    img_url = request.args.get("url")
+    if not img_url:
+        return jsonify({"error": "Parâmetro url é obrigatório"}), 400
+
+    parsed = urllib.parse.urlparse(img_url)
+    referer = f"{parsed.scheme}://{parsed.netloc}/"
+
+    try:
+        req = urllib.request.Request(
+            img_url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Referer": referer
+            }
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            content = resp.read()
+            content_type = resp.headers.get("Content-Type", "image/jpeg")
+            return Response(content, mimetype=content_type, headers={"Cache-Control": "public, max-age=86400"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)

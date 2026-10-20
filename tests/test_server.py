@@ -73,3 +73,43 @@ def test_delete_manhua(client):
     assert res.status_code == 200
     list_res = client.get("/api/manhuas")
     assert len(list_res.get_json()) == 0
+
+def test_get_chapter_images_endpoint(client):
+    from unittest.mock import patch, MagicMock
+    mock_html = """
+    <html>
+      <body>
+        <img class="img-responsive" src="https://manhuatop.org/logo.png" />
+        <img src="https://manhuatop.org/about_manhuatop.webp" class="wp-manga-chapter-img" />
+        <img id="image-0" src="https://s2.manhuatop.org/chapter_197/page_1.jpg" class="wp-manga-chapter-img" />
+        <img id="image-1" class="wp-manga-chapter-img" src="https://s2.manhuatop.org/chapter_197/page_2.jpg" />
+      </body>
+    </html>
+    """.encode("utf-8")
+
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = mock_html
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("urllib.request.urlopen", return_value=mock_resp):
+        res = client.get("/api/chapter-images?url=https://manhuatop.org/manhua/test/chapter-1/")
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["status"] == "ok"
+        assert len(data["images"]) == 2
+        assert "page_1.jpg" in data["images"][0]
+        assert "page_2.jpg" in data["images"][1]
+
+def test_proxy_image_endpoint(client):
+    from unittest.mock import patch, MagicMock
+    mock_image_bytes = b"\xff\xd8\xff\xe0fake_jpeg_content"
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = mock_image_bytes
+    mock_resp.headers = {"Content-Type": "image/jpeg"}
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("urllib.request.urlopen", return_value=mock_resp):
+        res = client.get("/api/proxy-image?url=https://s2.manhuatop.org/test.jpg")
+        assert res.status_code == 200
+        assert res.data == mock_image_bytes
+        assert res.content_type == "image/jpeg"
