@@ -1,0 +1,107 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_app/controllers/manhua_controller.dart';
+import 'package:mobile_app/models/manhua.dart';
+import 'package:mobile_app/services/api_service.dart';
+import 'package:mobile_app/services/storage_service.dart';
+
+class FakeStorageService extends StorageService {
+  String url = 'http://100.84.57.79:5000';
+
+  @override
+  Future<String> getBaseUrl() async => url;
+
+  @override
+  Future<void> setBaseUrl(String newUrl) async {
+    url = newUrl;
+  }
+}
+
+class FakeApiService extends ApiService {
+  final List<Manhua> items = [
+    Manhua(
+      id: 1,
+      title: 'Overgeared',
+      urlTemplate: 'https://asurascans.com/comics/overgeared-11fe7da3/chapter/{chapter}',
+      currentChapter: 203,
+    )
+  ];
+
+  @override
+  Future<List<Manhua>> fetchManhuas() async {
+    return List.from(items);
+  }
+
+  @override
+  Future<Manhua> updateChapterDelta(int id, int delta) async {
+    final idx = items.indexWhere((m) => m.id == id);
+    final updated = items[idx].copyWith(currentChapter: items[idx].currentChapter + delta);
+    items[idx] = updated;
+    return updated;
+  }
+
+  @override
+  Future<Manhua> addManhua(String title, String urlTemplate, int currentChapter) async {
+    final newItem = Manhua(
+      id: items.length + 1,
+      title: title,
+      urlTemplate: urlTemplate,
+      currentChapter: currentChapter,
+    );
+    items.add(newItem);
+    return newItem;
+  }
+
+  @override
+  Future<void> deleteManhua(int id) async {
+    items.removeWhere((m) => m.id == id);
+  }
+}
+
+void main() {
+  group('ManhuaController Test', () {
+    test('loadManhuas deve carregar lista no controller', () async {
+      final fakeApi = FakeApiService();
+      final fakeStorage = FakeStorageService();
+      final controller = ManhuaController(apiService: fakeApi, storageService: fakeStorage);
+
+      expect(controller.isLoading, false);
+      final future = controller.loadManhuas();
+      expect(controller.isLoading, true);
+      await future;
+      expect(controller.isLoading, false);
+      expect(controller.manhuas.length, 1);
+      expect(controller.manhuas.first.title, 'Overgeared');
+    });
+
+    test('changeChapterDelta deve atualizar o capítulo no controller', () async {
+      final fakeApi = FakeApiService();
+      final fakeStorage = FakeStorageService();
+      final controller = ManhuaController(apiService: fakeApi, storageService: fakeStorage);
+
+      await controller.loadManhuas();
+      await controller.changeChapterDelta(1, 1);
+      expect(controller.manhuas.first.currentChapter, 204);
+    });
+
+    test('addManhua deve incluir nova obra na lista', () async {
+      final fakeApi = FakeApiService();
+      final fakeStorage = FakeStorageService();
+      final controller = ManhuaController(apiService: fakeApi, storageService: fakeStorage);
+
+      await controller.loadManhuas();
+      await controller.addManhua('Solo Leveling', 'https://ex.com/{chapter}', 10);
+      expect(controller.manhuas.length, 2);
+      expect(controller.manhuas.last.title, 'Solo Leveling');
+    });
+
+    test('deleteManhua deve remover obra da lista', () async {
+      final fakeApi = FakeApiService();
+      final fakeStorage = FakeStorageService();
+      final controller = ManhuaController(apiService: fakeApi, storageService: fakeStorage);
+
+      await controller.loadManhuas();
+      await controller.deleteManhua(1);
+      expect(controller.manhuas.isEmpty, true);
+    });
+  });
+}
