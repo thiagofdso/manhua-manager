@@ -190,4 +190,59 @@ def test_proxy_image_asurascans_referer(client):
         req_arg = mock_urlopen.call_args[0][0]
         assert req_arg.get_header("Referer") == "https://asurascans.com/"
 
+def test_extract_ravenscans_images_ts_reader():
+    html = """
+    <script type="text/javascript">
+    ts_reader.run({
+        "post_id": 773298,
+        "sources": [
+            {
+                "source": "Server 1",
+                "images": [
+                    "https://cdn5.ravenscans.org/almighty-pig-slaughtering-knife/chapter-61/0.webp",
+                    "https://cdn5.ravenscans.org/almighty-pig-slaughtering-knife/chapter-61/1.webp"
+                ]
+            }
+        ]
+    });
+    </script>
+    """
+    imgs = server.extract_ravenscans_images(html)
+    assert len(imgs) == 2
+    assert imgs[0] == "https://cdn5.ravenscans.org/almighty-pig-slaughtering-knife/chapter-61/0.webp"
+    assert imgs[1] == "https://cdn5.ravenscans.org/almighty-pig-slaughtering-knife/chapter-61/1.webp"
+
+def test_extract_ravenscans_images_readerarea_fallback():
+    html = """
+    <div id="readerarea">
+        <img class="ts-main-image" src="https://cdn5.ravenscans.org/almighty-pig-slaughtering-knife/chapter-61/0.webp" />
+        <img class="ts-main-image lazy" src="https://ravenscans.org/wp-content/themes/mangareader/assets/img/readerarea.svg" data-src="https://cdn5.ravenscans.org/almighty-pig-slaughtering-knife/chapter-61/1.webp" />
+    </div>
+    """
+    imgs = server.extract_ravenscans_images(html)
+    assert len(imgs) == 2
+    assert imgs[0] == "https://cdn5.ravenscans.org/almighty-pig-slaughtering-knife/chapter-61/0.webp"
+    assert imgs[1] == "https://cdn5.ravenscans.org/almighty-pig-slaughtering-knife/chapter-61/1.webp"
+
+def test_extract_chapter_images_by_domain_ravenscans():
+    html = '<div id="readerarea"><img src="https://cdn5.ravenscans.org/knife/61/0.webp" /></div>'
+    imgs = server.extract_chapter_images_by_domain(html, "https://ravenscans.org/almighty-pig-slaughtering-knife-chapter-61/")
+    assert len(imgs) == 1
+    assert "0.webp" in imgs[0]
+
+def test_proxy_image_ravenscans_referer(client):
+    from unittest.mock import patch, MagicMock
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = b"fake-webp-binary"
+    mock_resp.headers = {"Content-Type": "image/webp"}
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
+        res = client.get("/api/proxy-image?url=https://cdn5.ravenscans.org/knife/61/0.webp")
+        assert res.status_code == 200
+        assert res.data == b"fake-webp-binary"
+        req_arg = mock_urlopen.call_args[0][0]
+        assert req_arg.get_header("Referer") == "https://ravenscans.org/"
+
+
 

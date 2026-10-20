@@ -101,11 +101,45 @@ def extract_asurascans_images(html: str) -> list[str]:
     raw_matches = re.findall(pattern, html)
     return list(dict.fromkeys(raw_matches))
 
+def extract_ravenscans_images(html: str) -> list[str]:
+    match = re.search(r'ts_reader\.run\(\s*({.*?})\s*\);', html, re.DOTALL)
+    if match:
+        try:
+            data = json.loads(match.group(1).replace(r'\/', '/'))
+            sources = data.get("sources", [])
+            if sources and "images" in sources[0]:
+                return [img.strip() for img in sources[0]["images"] if img.strip()]
+        except Exception:
+            pass
+
+    reader_match = re.search(r'<div[^>]*id=["\']readerarea["\'][^>]*>(.*?)</div>', html, re.DOTALL)
+    if reader_match:
+        reader_html = reader_match.group(1)
+        img_tags = re.findall(r'<img[^>]+>', reader_html)
+        images = []
+        for tag in img_tags:
+            src_match = re.search(r'data-src=["\']([^"\']+)["\']', tag) or re.search(r'src=["\']([^"\']+)["\']', tag)
+            if src_match:
+                src = src_match.group(1).strip()
+                if src and "readerarea.svg" not in src and not src.startswith("data:"):
+                    images.append(src)
+        if images:
+            return list(dict.fromkeys(images))
+
+    pattern = r'https?://[^\s"\'<>]*(?:ravenscans\.org)[^\s"\'<>]*\.(?:webp|jpg|jpeg|png)(?:\?[^\s"\'<>]*)?'
+    raw_matches = re.findall(pattern, html)
+    filtered = [
+        m for m in raw_matches
+        if not any(x in m for x in ["/wp-content/", "/themes/", "logo", "favicon"])
+    ]
+    return list(dict.fromkeys(filtered))
+
 def extract_generic_images(html: str) -> list[str]:
-    imgs = extract_manhuatop_images(html)
-    if imgs:
-        return imgs
-    return extract_asurascans_images(html)
+    for extractor in [extract_manhuatop_images, extract_asurascans_images, extract_ravenscans_images]:
+        imgs = extractor(html)
+        if imgs:
+            return imgs
+    return []
 
 def extract_chapter_images_by_domain(html: str, target_url: str) -> list[str]:
     parsed = urllib.parse.urlparse(target_url)
@@ -116,6 +150,7 @@ def extract_chapter_images_by_domain(html: str, target_url: str) -> list[str]:
     extractors = {
         "asurascans.com": extract_asurascans_images,
         "manhuatop.org": extract_manhuatop_images,
+        "ravenscans.org": extract_ravenscans_images,
     }
     extractor = extractors.get(domain, extract_generic_images)
     return extractor(html)
@@ -156,6 +191,8 @@ def proxy_image():
     parsed = urllib.parse.urlparse(img_url)
     if "asurascans.com" in parsed.netloc.lower():
         referer = "https://asurascans.com/"
+    elif "ravenscans.org" in parsed.netloc.lower():
+        referer = "https://ravenscans.org/"
     else:
         referer = f"{parsed.scheme}://{parsed.netloc}/"
 
