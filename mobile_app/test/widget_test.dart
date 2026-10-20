@@ -1,30 +1,92 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_app/controllers/manhua_controller.dart';
+import 'package:mobile_app/models/manhua.dart';
+import 'package:mobile_app/screens/home_screen.dart';
+import 'package:mobile_app/screens/reader_screen.dart';
+import 'package:mobile_app/services/api_service.dart';
+import 'package:mobile_app/services/storage_service.dart';
+import 'package:provider/provider.dart';
 
-import 'package:mobile_app/main.dart';
+class FakeStorageService extends StorageService {
+  @override
+  Future<String> getBaseUrl() async => 'http://100.84.57.79:5000';
+}
+
+class FakeApiService extends ApiService {
+  final List<Manhua> items = [
+    Manhua(
+      id: 1,
+      title: 'Overgeared',
+      urlTemplate: 'https://asurascans.com/comics/overgeared-11fe7da3/chapter/{chapter}',
+      currentChapter: 203,
+    ),
+  ];
+
+  @override
+  Future<List<Manhua>> fetchManhuas() async => List.from(items);
+
+  @override
+  Future<List<String>> fetchChapterImages(String targetUrl) async {
+    return ['https://cdn.com/page1.webp', 'https://cdn.com/page2.webp'];
+  }
+
+  @override
+  Future<String> getProxyImageUrl(String imageUrl) async => imageUrl;
+
+  @override
+  Future<Manhua> updateChapterDelta(int id, int delta) async {
+    final idx = items.indexWhere((m) => m.id == id);
+    final updated = items[idx].copyWith(currentChapter: items[idx].currentChapter + delta);
+    items[idx] = updated;
+    return updated;
+  }
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  Widget createTestApp(Widget child, ManhuaController controller) {
+    return ChangeNotifierProvider<ManhuaController>.value(
+      value: controller,
+      child: MaterialApp(home: child),
+    );
+  }
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  testWidgets('HomeScreen deve exibir lista de obras e botoes', (tester) async {
+    final api = FakeApiService();
+    final storage = FakeStorageService();
+    final controller = ManhuaController(apiService: api, storageService: storage);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpWidget(createTestApp(const HomeScreen(), controller));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Manhua Manager'), findsOneWidget);
+    expect(find.text('Overgeared'), findsOneWidget);
+    expect(find.text('Capítulo 203'), findsOneWidget);
+    expect(find.byIcon(Icons.visibility), findsOneWidget);
+    expect(find.byIcon(Icons.add_circle_outline), findsOneWidget);
+    expect(find.byIcon(Icons.remove_circle_outline), findsOneWidget);
+  });
+
+  testWidgets('ReaderScreen deve carregar e responder a gesto de swipe', (tester) async {
+    final api = FakeApiService();
+    final storage = FakeStorageService();
+    final controller = ManhuaController(apiService: api, storageService: storage);
+
+    final manhua = api.items.first;
+
+    await tester.pumpWidget(createTestApp(ReaderScreen(manhua: manhua), controller));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Overgeared 203'), findsOneWidget);
+    expect(find.text('Anterior'), findsOneWidget);
+    expect(find.text('Próximo'), findsOneWidget);
+
+    // Simula arrastar com velocidade (fling/swipe para a esquerda) -> avança para capítulo 204
+    await tester.fling(find.byType(GestureDetector).first, const Offset(-500.0, 0.0), 1000.0);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.text('Overgeared 204'), findsOneWidget);
   });
 }
