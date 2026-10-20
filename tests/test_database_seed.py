@@ -13,5 +13,5 @@ def test_initial_database_seed():
     assert len(data) >= 1
     overgeared = next((item for item in data if "Overgeared" in item.get("title", "")), None)
     assert overgeared is not None
-    assert overgeared["currentChapter"] >= 197
-    assert "https://manhuatop.org/manhua/overgeared-org/chapter-{chapter}/" in overgeared["urlTemplate"]
+    assert overgeared["currentChapter"] == 197
+    assert "https://asurascans.com/comics/overgeared-11fe7da3/chapter/{chapter}" in overgeared["urlTemplate"]
