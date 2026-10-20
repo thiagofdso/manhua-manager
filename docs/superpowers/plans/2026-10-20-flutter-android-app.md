@@ -28,14 +28,14 @@
 **Interfaces:**
 - Produces: Estrutura base de compilação Flutter e dependências instaladas (`http`, `provider`, `shared_preferences`, `cached_network_image`).
 
-- [ ] **Step 1: Criar scaffold do projeto Flutter**
+- [x] **Step 1: Criar scaffold do projeto Flutter**
 
 Executar comando para inicializar o app Flutter em `mobile_app/`:
 ```bash
 /home/thiagofdso/development/flutter/bin/flutter create --org com.manhuamanager --project-name mobile_app mobile_app
 ```
 
-- [ ] **Step 2: Configurar dependências no `pubspec.yaml`**
+- [x] **Step 2: Configurar dependências no `pubspec.yaml`**
 
 Adicionar ao `mobile_app/pubspec.yaml`:
 ```yaml
@@ -54,7 +54,7 @@ dev_dependencies:
   flutter_lints: ^3.0.0
 ```
 
-- [ ] **Step 3: Configurar permissão de internet no `AndroidManifest.xml`**
+- [x] **Step 3: Configurar permissão de internet no `AndroidManifest.xml`**
 
 No `mobile_app/android/app/src/main/AndroidManifest.xml`, adicionar antes de `<application>`:
 ```xml
@@ -62,12 +62,12 @@ No `mobile_app/android/app/src/main/AndroidManifest.xml`, adicionar antes de `<a
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 ```
 
-- [ ] **Step 4: Executar `flutter pub get`**
+- [x] **Step 4: Executar `flutter pub get`**
 
 Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter pub get`  
 Expected: Process finished with exit code 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mobile_app/
@@ -86,7 +86,7 @@ git commit -m "chore: scaffold flutter project in mobile_app with android config
 - Produces:
   - Classe `Manhua` com serialização JSON, imutabilidade com `copyWith` e método `targetUrlForChapter(int chapter)`.
 
-- [ ] **Step 1: Escrever teste unitário que falha**
+- [x] **Step 1: Escrever teste unitário que falha**
 
 Criar `mobile_app/test/models/manhua_test.dart`:
 ```dart
@@ -132,12 +132,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Executar teste para verificar falha**
+- [x] **Step 2: Executar teste para verificar falha**
 
 Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter test test/models/manhua_test.dart`  
 Expected: FAIL (Target of URI doesn't exist: 'package:mobile_app/models/manhua.dart').
 
-- [ ] **Step 3: Implementar `Manhua`**
+- [x] **Step 3: Implementar `Manhua`**
 
 Criar `mobile_app/lib/models/manhua.dart`:
 ```dart
@@ -198,12 +198,12 @@ class Manhua {
 }
 ```
 
-- [ ] **Step 4: Executar teste para verificar aprovação**
+- [x] **Step 4: Executar teste para verificar aprovação**
 
 Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter test test/models/manhua_test.dart`  
 Expected: PASS (All tests passed!).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mobile_app/lib/models/ mobile_app/test/models/
@@ -230,25 +230,25 @@ git commit -m "feat: add Manhua model with json serialization and url formatting
   - `ApiService.fetchChapterImages(String targetUrl) -> Future<List<String>>`
   - `ApiService.getProxyImageUrl(String rawImageUrl) -> String`
 
-- [ ] **Step 1: Escrever teste unitário de serviços**
+- [x] **Step 1: Escrever teste unitário de serviços**
 
 Criar `mobile_app/test/services/api_service_test.dart` utilizando mock client de `http`.
 
-- [ ] **Step 2: Executar teste para verificar falha**
+- [x] **Step 2: Executar teste para verificar falha**
 
 Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter test test/services/api_service_test.dart`  
 Expected: FAIL.
 
-- [ ] **Step 3: Implementar `StorageService` e `ApiService`**
+- [x] **Step 3: Implementar `StorageService` e `ApiService`**
 
 Implementar `storage_service.dart` com SharedPreferences e `api_service.dart` consumindo os endpoints `/api/manhuas`, `/api/chapter-images`, `/api/proxy-image`.
 
-- [ ] **Step 4: Executar teste para verificar aprovação**
+- [x] **Step 4: Executar teste para verificar aprovação**
 
 Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter test test/services/api_service_test.dart`  
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mobile_app/lib/services/ mobile_app/test/services/
@@ -267,11 +267,11 @@ git commit -m "feat: add StorageService and ApiService with tailscale backend in
 - Consumes: `ApiService`, `StorageService`.
 - Produces: `ManhuaController` herdando de `ChangeNotifier` com estados reativos (`isLoading`, `errorMessage`, `manhuas`, `changeChapter`, `refreshManhuas`).
 
-- [ ] **Step 1: Escrever teste unitário do controller**
-- [ ] **Step 2: Executar teste para verificar falha**
-- [ ] **Step 3: Implementar `ManhuaController`**
-- [ ] **Step 4: Executar teste para verificar aprovação**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Escrever teste unitário do controller**
+- [x] **Step 2: Executar teste para verificar falha**
+- [x] **Step 3: Implementar `ManhuaController`**
+- [x] **Step 4: Executar teste para verificar aprovação**
+- [x] **Step 5: Commit**
 
 ---
 
@@ -290,10 +290,10 @@ git commit -m "feat: add StorageService and ApiService with tailscale backend in
   - `HomeScreen`: Interface com lista de obras, botões rápidos `-1` e `+1`, botão de leitor `👁️`, menu de edição/exclusão e diálogo de IP.
   - `ReaderScreen`: Leitor vertical contínuo com `GestureDetector` para troca de capítulo ao arrastar para os lados (`onHorizontalDragEnd`).
 
-- [ ] **Step 1: Implementar telas e widgets**
-- [ ] **Step 2: Escrever widget test para `HomeScreen` e `ReaderScreen`**
-- [ ] **Step 3: Executar widget tests para validar renderização**
-- [ ] **Step 4: Commit**
+- [x] **Step 1: Implementar telas e widgets**
+- [x] **Step 2: Escrever widget test para `HomeScreen` e `ReaderScreen`**
+- [x] **Step 3: Executar widget tests para validar renderização**
+- [x] **Step 4: Commit**
 
 ---
 
@@ -302,17 +302,17 @@ git commit -m "feat: add StorageService and ApiService with tailscale backend in
 **Files:**
 - Modify: `mobile_app/android/app/build.gradle`
 
-- [ ] **Step 1: Configurar build Android e Gradle**
-- [ ] **Step 2: Executar build do APK**
+- [x] **Step 1: Configurar build Android e Gradle**
+- [x] **Step 2: Executar build do APK**
   Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter build apk --debug`
   Expected: APK gerado em `mobile_app/build/app/outputs/flutter-apk/app-debug.apk`.
-- [ ] **Step 3: Verificar integridade do binário APK gerado**
-- [ ] **Step 4: Commit**
+- [x] **Step 3: Verificar integridade do binário APK gerado**
+- [x] **Step 4: Commit**
 
 ---
 
 ### Task 7: Validação Completa do Sistema
 
-- [ ] **Step 1: Executar suíte completa de testes no Flutter (`flutter test`)**
-- [ ] **Step 2: Executar suíte completa de testes no backend (`make test`)**
-- [ ] **Step 3: Testar comunicação do aplicativo com o serviço local/Tailscale**
+- [x] **Step 1: Executar suíte completa de testes no Flutter (`flutter test`)**
+- [x] **Step 2: Executar suíte completa de testes no backend (`make test`)**
+- [x] **Step 3: Testar comunicação do aplicativo com o serviço local/Tailscale**
