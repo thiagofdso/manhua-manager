@@ -52,3 +52,12 @@ def test_keyboard_navigation_in_index(client):
     html = res.data.decode("utf-8")
     assert "ArrowLeft" in html
     assert "ArrowRight" in html
+
+def test_dynamic_page_title_in_index(client):
+    res = client.get("/")
+    assert res.status_code == 200
+    html = res.data.decode("utf-8")
+    assert "document.title = `${readerManhua.title} ${readerManhua.currentChapter}`" in html
+    assert "document.title = `${selectedManhua.title} ${selectedManhua.currentChapter}`" in html
+    assert "document.title = 'Manhua Tracker'" in html
+
