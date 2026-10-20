@@ -508,6 +508,30 @@
       loadData();
     }
 
+    // Navegação por teclas de seta (ArrowLeft e ArrowRight)
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+      if (document.getElementById('editModal').classList.contains('active')) return;
+
+      if (e.key === 'ArrowRight') {
+        if (document.getElementById('readerView').classList.contains('active')) {
+          e.preventDefault();
+          changeReaderChapter(1);
+        } else if (document.getElementById('detailView').classList.contains('active')) {
+          e.preventDefault();
+          changeSelectedChapter(1);
+        }
+      } else if (e.key === 'ArrowLeft') {
+        if (document.getElementById('readerView').classList.contains('active')) {
+          e.preventDefault();
+          changeReaderChapter(-1);
+        } else if (document.getElementById('detailView').classList.contains('active')) {
+          e.preventDefault();
+          changeSelectedChapter(-1);
+        }
+      }
+    });
+
     loadData();
   </script>
 </body>

@@ -45,3 +45,10 @@ def test_native_continuous_reader_in_index(client):
     assert "readerImagesContainer" in html
     assert "api/chapter-images" in html
     assert "api/proxy-image" in html
+
+def test_keyboard_navigation_in_index(client):
+    res = client.get("/")
+    assert res.status_code == 200
+    html = res.data.decode("utf-8")
+    assert "ArrowLeft" in html
+    assert "ArrowRight" in html
