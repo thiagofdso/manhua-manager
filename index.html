@@ -310,6 +310,7 @@
 
     function showListView() {
       selectedManhua = null;
+      document.title = 'Manhua Tracker';
       switchView('listView');
       loadData();
     }
@@ -322,6 +323,7 @@
 
     function renderDetails() {
       if (!selectedManhua) return;
+      document.title = `${selectedManhua.title} ${selectedManhua.currentChapter}`;
       document.getElementById('detailTitle').innerText = selectedManhua.title;
       document.getElementById('detailChapter').innerText = selectedManhua.currentChapter;
       const targetUrl = selectedManhua.urlTemplate.replace('{chapter}', selectedManhua.currentChapter);
@@ -383,6 +385,7 @@
 
     function updateReaderHeader() {
       if (!readerManhua) return;
+      document.title = `${readerManhua.title} ${readerManhua.currentChapter}`;
       const url = readerManhua.urlTemplate.replace('{chapter}', readerManhua.currentChapter);
       document.getElementById('readerTitle').innerText = readerManhua.title;
       document.getElementById('readerSubtitle').innerText = `Capítulo ${readerManhua.currentChapter}`;
@@ -453,6 +456,11 @@
 
     function closeReader() {
       document.getElementById('readerImagesContainer').innerHTML = '';
+      if (previousView === 'detailView' && selectedManhua) {
+        document.title = `${selectedManhua.title} ${selectedManhua.currentChapter}`;
+      } else {
+        document.title = 'Manhua Tracker';
+      }
       switchView(previousView || 'listView');
       loadData();
     }
