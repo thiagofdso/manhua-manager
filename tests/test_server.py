@@ -134,6 +134,17 @@ def test_extract_asurascans_images():
     assert imgs[0] == "https://cdn.asurascans.com/asura-images/chapters-merged/overgeared/162615/001.webp?v=1791877385"
     assert imgs[1] == "https://cdn.asurascans.com/asura-images/chapters-merged/overgeared/162615/002.webp?v=1791877385"
 
+def test_extract_asurascans_images_unmerged_chapters_path():
+    html = """
+    <img src="https://cdn.asurascans.com/asura-images/covers/the-extras-academy-survival-guide.18d91e.webp" />
+    <img src="https://cdn.asurascans.com/asura-images/chapters/the-extras-academy-survival-guide/74/001.webp?v=1791864274" />
+    <img src="https://cdn.asurascans.com/asura-images/chapters/the-extras-academy-survival-guide/74/002.webp?v=1791864274" />
+    """
+    imgs = server.extract_asurascans_images(html)
+    assert len(imgs) == 2
+    assert imgs[0] == "https://cdn.asurascans.com/asura-images/chapters/the-extras-academy-survival-guide/74/001.webp?v=1791864274"
+    assert imgs[1] == "https://cdn.asurascans.com/asura-images/chapters/the-extras-academy-survival-guide/74/002.webp?v=1791864274"
+
 def test_extract_chapter_images_by_domain_dispatch():
     asura_html = '<img src="https://cdn.asurascans.com/asura-images/chapters-merged/test/1/001.webp" />'
     imgs = server.extract_chapter_images_by_domain(asura_html, "https://asurascans.com/comics/test/chapter/1")

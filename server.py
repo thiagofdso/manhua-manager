@@ -97,7 +97,7 @@ def extract_manhuatop_images(html: str) -> list[str]:
     return chapter_imgs
 
 def extract_asurascans_images(html: str) -> list[str]:
-    pattern = r'https://cdn\.asurascans\.com/asura-images/chapters-merged/[^\s"\'<>&]+(?:\?[^\s"\'<>&]*)?'
+    pattern = r'https://cdn\.asurascans\.com/asura-images/chapters(?:-merged)?/[^\s"\'<>&]+(?:\?[^\s"\'<>&]*)?'
     raw_matches = re.findall(pattern, html)
     return list(dict.fromkeys(raw_matches))
 
