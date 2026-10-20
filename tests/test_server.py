@@ -55,6 +55,19 @@ def test_patch_chapter_specific(client):
     data = res.get_json()
     assert data["item"]["currentChapter"] == 205
 
+def test_patch_full_edit(client):
+    payload = {
+        "title": "Overgeared (Renomeado)",
+        "urlTemplate": "https://novo-site.com/obra/chapter-{chapter}/",
+        "chapter": 200
+    }
+    res = client.patch("/api/manhuas/100", json=payload)
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["item"]["title"] == "Overgeared (Renomeado)"
+    assert data["item"]["urlTemplate"] == "https://novo-site.com/obra/chapter-{chapter}/"
+    assert data["item"]["currentChapter"] == 200
+
 def test_delete_manhua(client):
     res = client.delete("/api/manhuas/100")
     assert res.status_code == 200

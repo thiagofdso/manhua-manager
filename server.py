@@ -61,6 +61,10 @@ def update_chapter(item_id):
     data = load_data()
     for m in data:
         if m["id"] == item_id:
+            if "title" in payload and str(payload["title"]).strip():
+                m["title"] = str(payload["title"]).strip()
+            if "urlTemplate" in payload and str(payload["urlTemplate"]).strip():
+                m["urlTemplate"] = str(payload["urlTemplate"]).strip()
             if "chapter" in payload:
                 m["currentChapter"] = max(1, int(payload["chapter"]))
             elif "delta" in payload:
