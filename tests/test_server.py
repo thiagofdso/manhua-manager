@@ -140,3 +140,43 @@ def test_extract_chapter_images_by_domain_dispatch():
     assert len(imgs) == 1
     assert "001.webp" in imgs[0]
 
+def test_get_chapter_images_endpoint_asurascans(client):
+    from unittest.mock import patch, MagicMock
+    mock_html = """
+    <html>
+      <body>
+        <astro-island props="{&quot;seriesSlug&quot;:[0,&quot;overgeared&quot;]}">
+          <img src="https://cdn.asurascans.com/asura-images/chapters-merged/overgeared/162615/001.webp?v=1" />
+          <img src="https://cdn.asurascans.com/asura-images/chapters-merged/overgeared/162615/002.webp?v=1" />
+        </astro-island>
+      </body>
+    </html>
+    """.encode("utf-8")
+
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = mock_html
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("urllib.request.urlopen", return_value=mock_resp):
+        res = client.get("/api/chapter-images?url=https://asurascans.com/comics/overgeared-11fe7da3/chapter/197")
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["status"] == "ok"
+        assert len(data["images"]) == 2
+        assert "001.webp" in data["images"][0]
+
+def test_proxy_image_asurascans_referer(client):
+    from unittest.mock import patch, MagicMock
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = b"fake-webp-binary"
+    mock_resp.headers = {"Content-Type": "image/webp"}
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
+        res = client.get("/api/proxy-image?url=https://cdn.asurascans.com/asura-images/chapters-merged/test/1/001.webp")
+        assert res.status_code == 200
+        assert res.data == b"fake-webp-binary"
+        req_arg = mock_urlopen.call_args[0][0]
+        assert req_arg.get_header("Referer") == "https://asurascans.com/"
+
+

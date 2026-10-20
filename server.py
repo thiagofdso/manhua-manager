@@ -137,16 +137,7 @@ def get_chapter_images():
         with urllib.request.urlopen(req, timeout=15) as resp:
             html = resp.read().decode("utf-8", errors="ignore")
 
-        raw_imgs = re.findall(r'<img[^>]+src=[\"\']([^\"\']+)[\"\'][^>]*class=[\"\'][^\"\']*wp-manga-chapter-img[^\"\']*[\"\']', html, re.IGNORECASE)
-        raw_imgs += re.findall(r'<img[^>]+class=[\"\'][^\"\']*wp-manga-chapter-img[^\"\']*[\"\'][^>]+src=[\"\']([^\"\']+)[\"\']', html, re.IGNORECASE)
-
-        seen = set()
-        chapter_imgs = []
-        for img in raw_imgs:
-            clean = img.strip()
-            if clean and clean not in seen and "about_manhuatop" not in clean:
-                seen.add(clean)
-                chapter_imgs.append(clean)
+        chapter_imgs = extract_chapter_images_by_domain(html, target_url)
 
         return jsonify({
             "status": "ok",
@@ -163,7 +154,10 @@ def proxy_image():
         return jsonify({"error": "Parâmetro url é obrigatório"}), 400
 
     parsed = urllib.parse.urlparse(img_url)
-    referer = f"{parsed.scheme}://{parsed.netloc}/"
+    if "asurascans.com" in parsed.netloc.lower():
+        referer = "https://asurascans.com/"
+    else:
+        referer = f"{parsed.scheme}://{parsed.netloc}/"
 
     try:
         req = urllib.request.Request(
