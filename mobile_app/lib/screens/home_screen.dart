@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../controllers/manhua_controller.dart';
 import '../models/manhua.dart';
@@ -24,8 +26,20 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestStoragePermissionOnStartup();
       context.read<ManhuaController>().loadManhuas();
     });
+  }
+
+  Future<void> _requestStoragePermissionOnStartup() async {
+    try {
+      if (Platform.isAndroid) {
+        final status = await Permission.storage.status;
+        if (!status.isGranted) {
+          await Permission.storage.request();
+        }
+      }
+    } catch (_) {}
   }
 
   void _enterEditOrderMode(List<Manhua> manhuas) {
