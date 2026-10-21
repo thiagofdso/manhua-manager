@@ -6,6 +6,9 @@ import urllib.request
 import urllib.parse
 from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
+import mangafire_provider
+import comix_provider
+import manhuaus_provider
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(BASE_DIR, "database.json")
@@ -34,26 +37,86 @@ def index():
 def static_files(filename):
     return send_from_directory(BASE_DIR, filename)
 
+def sort_manhuas(data):
+    return sorted(
+        data,
+        key=lambda x: (
+            not bool(x.get("isFavorite", False)),
+            int(x.get("customOrder", 0)),
+            -int(x.get("updatedAt", 0))
+        )
+    )
+
 @app.route("/api/manhuas", methods=["GET"])
 def get_manhuas():
     data = load_data()
-    data.sort(key=lambda x: x.get("updatedAt", 0), reverse=True)
-    return jsonify(data)
+    return jsonify(sort_manhuas(data))
 
 @app.route("/api/manhuas", methods=["POST"])
 def add_manhua():
     payload = request.get_json() or {}
     if not payload.get("title") or not payload.get("urlTemplate") or payload.get("currentChapter") is None:
         return jsonify({"error": "Dados inválidos"}), 400
-    
+
+    url_template = payload["urlTemplate"].strip()
+    current_chapter = max(1, int(payload["currentChapter"]))
+    chapter_id = None
+    next_chapter = None
+    prev_chapter = None
+
+    if "mangafire.to" in url_template.lower():
+        try:
+            hid, ch_param = mangafire_provider.parse_mangafire_url(url_template)
+            test_id = mangafire_provider.resolve_chapter_id(hid, ch_param) if ch_param else None
+            if test_id:
+                ch_meta = mangafire_provider.fetch_chapter_by_id(test_id)
+                current_chapter = ch_meta.get("number", current_chapter)
+                chapter_id = ch_meta.get("id")
+                next_chapter = ch_meta.get("next")
+                prev_chapter = ch_meta.get("prev")
+            url_template = re.sub(r'/chapter/\d+', '/chapter/{chapter}', url_template)
+        except Exception:
+            pass
+    elif "comix.to" in url_template.lower():
+        try:
+            ch_meta = comix_provider.get_comix_chapter_data(url_template)
+            current_chapter = ch_meta.get("chapter", current_chapter)
+            chapter_id = ch_meta.get("chapterId")
+            next_chapter = ch_meta.get("next")
+            prev_chapter = ch_meta.get("prev")
+            url_template = re.sub(r'/\d+-chapter-\d+', '/{chapter}', url_template)
+        except Exception:
+            pass
+    elif "manhuaus.com" in url_template.lower():
+        try:
+            ch_meta = manhuaus_provider.get_manhuaus_chapter_data(url_template)
+            current_chapter = ch_meta.get("chapter", current_chapter)
+            next_chapter = ch_meta.get("next")
+            prev_chapter = ch_meta.get("prev")
+            url_template = re.sub(r'chapter-\d+', 'chapter-{chapter}', url_template, flags=re.IGNORECASE)
+        except Exception:
+            pass
+    elif "{chapter}" not in url_template:
+        if re.search(r'chapter-\d+', url_template, re.IGNORECASE):
+            url_template = re.sub(r'chapter-\d+', 'chapter-{chapter}', url_template, flags=re.IGNORECASE)
+        elif re.search(r'/chapter/\d+', url_template, re.IGNORECASE):
+            url_template = re.sub(r'/chapter/\d+', '/chapter/{chapter}', url_template, flags=re.IGNORECASE)
+
     data = load_data()
     new_item = {
         "id": int(time.time() * 1000),
         "title": payload["title"].strip(),
-        "urlTemplate": payload["urlTemplate"].strip(),
-        "currentChapter": max(1, int(payload["currentChapter"])),
+        "urlTemplate": url_template,
+        "currentChapter": current_chapter,
         "updatedAt": int(time.time())
     }
+    if chapter_id:
+        new_item["chapterId"] = chapter_id
+    if next_chapter:
+        new_item["nextChapter"] = next_chapter
+    if prev_chapter:
+        new_item["prevChapter"] = prev_chapter
+
     data.append(new_item)
     save_data(data)
     return jsonify({"status": "ok", "item": new_item})
@@ -68,10 +131,101 @@ def update_chapter(item_id):
                 m["title"] = str(payload["title"]).strip()
             if "urlTemplate" in payload and str(payload["urlTemplate"]).strip():
                 m["urlTemplate"] = str(payload["urlTemplate"]).strip()
+                if "mangafire.to" in m["urlTemplate"].lower():
+                    m["urlTemplate"] = re.sub(r'/chapter/\d+', '/chapter/{chapter}', m["urlTemplate"])
+                elif "comix.to" in m["urlTemplate"].lower():
+                    m["urlTemplate"] = re.sub(r'/\d+-chapter-\d+', '/{chapter}', m["urlTemplate"])
+                elif "manhuaus.com" in m["urlTemplate"].lower():
+                    m["urlTemplate"] = re.sub(r'chapter-\d+', 'chapter-{chapter}', m["urlTemplate"], flags=re.IGNORECASE)
+                elif "{chapter}" not in m["urlTemplate"]:
+                    if re.search(r'chapter-\d+', m["urlTemplate"], re.IGNORECASE):
+                        m["urlTemplate"] = re.sub(r'chapter-\d+', 'chapter-{chapter}', m["urlTemplate"], flags=re.IGNORECASE)
+                    elif re.search(r'/chapter/\d+', m["urlTemplate"], re.IGNORECASE):
+                        m["urlTemplate"] = re.sub(r'/chapter/\d+', '/chapter/{chapter}', m["urlTemplate"], flags=re.IGNORECASE)
+
+            is_mf = "mangafire.to" in m.get("urlTemplate", "").lower()
+            is_comix = "comix.to" in m.get("urlTemplate", "").lower()
+            is_manhuaus = "manhuaus.com" in m.get("urlTemplate", "").lower()
+
             if "chapter" in payload:
                 m["currentChapter"] = max(1, int(payload["chapter"]))
+                if is_mf or is_comix:
+                    m.pop("chapterId", None)
             elif "delta" in payload:
-                m["currentChapter"] = max(1, m["currentChapter"] + int(payload["delta"]))
+                delta = int(payload["delta"])
+                if is_comix:
+                    if (delta > 0 and not m.get("nextChapter")) or (delta < 0 and not m.get("prevChapter")):
+                        try:
+                            t_url = m.get("urlTemplate", "")
+                            if m.get("chapterId"):
+                                t_url = re.sub(r'/\{chapter\}|\/\d+-chapter-\d+', f'/{m["chapterId"]}-chapter-{m["currentChapter"]}', t_url)
+                            ch_info = comix_provider.get_comix_chapter_data(t_url)
+                            m["currentChapter"] = ch_info.get("chapter", m["currentChapter"])
+                            m["chapterId"] = ch_info.get("chapterId")
+                            m["nextChapter"] = ch_info.get("next")
+                            m["prevChapter"] = ch_info.get("prev")
+                        except Exception:
+                            pass
+
+                    if delta > 0 and m.get("nextChapter"):
+                        next_info = m["nextChapter"]
+                        m["currentChapter"] = next_info.get("number", m["currentChapter"] + delta)
+                        m["chapterId"] = next_info.get("id")
+                    elif delta < 0 and m.get("prevChapter"):
+                        prev_info = m["prevChapter"]
+                        m["currentChapter"] = prev_info.get("number", max(1, m["currentChapter"] + delta))
+                        m["chapterId"] = prev_info.get("id")
+                    else:
+                        m["currentChapter"] = max(1, m["currentChapter"] + delta)
+                        m.pop("chapterId", None)
+                elif is_mf:
+                    if (delta > 0 and not m.get("nextChapter")) or (delta < 0 and not m.get("prevChapter")):
+                        try:
+                            hid, ch_param = mangafire_provider.parse_mangafire_url(m.get("urlTemplate", ""))
+                            target_val = m.get("chapterId") or ch_param or m.get("currentChapter")
+                            ch_id = mangafire_provider.resolve_chapter_id(hid, str(target_val))
+                            if ch_id:
+                                ch_info = mangafire_provider.fetch_chapter_by_id(ch_id)
+                                m["currentChapter"] = ch_info.get("number", m["currentChapter"])
+                                m["chapterId"] = ch_info.get("id")
+                                m["nextChapter"] = ch_info.get("next")
+                                m["prevChapter"] = ch_info.get("prev")
+                        except Exception:
+                            pass
+
+                    if delta > 0 and m.get("nextChapter"):
+                        next_info = m["nextChapter"]
+                        m["currentChapter"] = next_info.get("number", m["currentChapter"] + delta)
+                        m["chapterId"] = next_info.get("id")
+                    elif delta < 0 and m.get("prevChapter"):
+                        prev_info = m["prevChapter"]
+                        m["currentChapter"] = prev_info.get("number", max(1, m["currentChapter"] + delta))
+                        m["chapterId"] = prev_info.get("id")
+                    else:
+                        m["currentChapter"] = max(1, m["currentChapter"] + delta)
+                        m.pop("chapterId", None)
+                elif is_manhuaus:
+                    if (delta > 0 and not m.get("nextChapter")) or (delta < 0 and not m.get("prevChapter")):
+                        try:
+                            t_url = m.get("urlTemplate", "").replace("{chapter}", str(m.get("currentChapter", 1)))
+                            ch_info = manhuaus_provider.get_manhuaus_chapter_data(t_url)
+                            m["currentChapter"] = ch_info.get("chapter", m["currentChapter"])
+                            m["nextChapter"] = ch_info.get("next")
+                            m["prevChapter"] = ch_info.get("prev")
+                        except Exception:
+                            pass
+
+                    if delta > 0 and m.get("nextChapter"):
+                        next_info = m["nextChapter"]
+                        m["currentChapter"] = next_info.get("number", m["currentChapter"] + delta)
+                    elif delta < 0 and m.get("prevChapter"):
+                        prev_info = m["prevChapter"]
+                        m["currentChapter"] = prev_info.get("number", max(1, m["currentChapter"] + delta))
+                    else:
+                        m["currentChapter"] = max(1, m["currentChapter"] + delta)
+                else:
+                    m["currentChapter"] = max(1, m["currentChapter"] + delta)
+
             m["updatedAt"] = int(time.time())
             save_data(data)
             return jsonify({"status": "ok", "item": m})
@@ -134,8 +288,154 @@ def extract_ravenscans_images(html: str) -> list[str]:
     ]
     return list(dict.fromkeys(filtered))
 
+def extract_mangak_images(html: str) -> list[str]:
+    m = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, re.DOTALL)
+    if m:
+        try:
+            data = json.loads(m.group(1))
+            images = data.get("props", {}).get("pageProps", {}).get("initialChapter", {}).get("images", [])
+            if images:
+                return [img.strip() for img in images if img and img.strip()]
+        except Exception:
+            pass
+    raw = re.findall(r'https?://[^\s"\'<>]*qvzr[^\s"\'<>]*\.(?:webp|jpg|jpeg|png)', html)
+    return list(dict.fromkeys(raw))
+
+def extract_mgeko_images(html: str) -> list[str]:
+    imgs = re.findall(r'<img[^>]+id=["\']image-\d+["\'][^>]*src=["\']([^"\']+)["\']', html, re.IGNORECASE)
+    if not imgs:
+        imgs = re.findall(r'<img[^>]+src=["\']([^"\']+)["\'][^>]*id=["\']image-\d+["\']', html, re.IGNORECASE)
+    if not imgs:
+        reader_match = re.search(r'<div[^>]*id=["\']chapter-reader["\'][^>]*>(.*?)</div>', html, re.DOTALL | re.IGNORECASE)
+        if reader_match:
+            imgs = re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', reader_match.group(1), re.IGNORECASE)
+    filtered = []
+    for u in imgs:
+        u = u.strip()
+        if u and not u.startswith("data:") and not any(x in u.lower() for x in ["banner", "credit", "logo", "loading"]):
+            if u not in filtered:
+                filtered.append(u)
+    return filtered
+
+def extract_levelingwithgods_images(html: str) -> list[str]:
+    content_match = re.search(r'<div[^>]*class=["\'][^"\']*entry-content[^"\']*["\'][^>]*>(.*?)</div>\s*(?:<!--|\z)', html, re.DOTALL | re.IGNORECASE)
+    search_scope = content_match.group(1) if content_match else html
+    raw = re.findall(r'<img[^>]+(?:data-src|src)=["\'](https?://[^"\']+)["\']', search_scope, re.IGNORECASE)
+    images = []
+    for u in raw:
+        u = u.strip()
+        if any(x in u.lower() for x in ["lazy_placeholder", "logo", "avatar", "icon", "about_"]) or u.startswith("data:"):
+            continue
+        if u not in images:
+            images.append(u)
+    return images
+
+def extract_pickmeupgacha_images(html: str) -> list[str]:
+    raw = re.findall(r'<img[^>]+(?:data-src|src)=["\'](https?://[^"\']+)["\']', html, re.IGNORECASE)
+    images = []
+    for u in raw:
+        u = u.strip()
+        if "abyssrift.com" in u or ("/Gacha/" in u and u.lower().endswith((".webp", ".jpg", ".png", ".jpeg"))):
+            if u not in images:
+                images.append(u)
+    if not images:
+        for u in raw:
+            u = u.strip()
+            if any(ext in u.lower() for ext in [".webp", ".jpg", ".png", ".jpeg"]) and not any(x in u.lower() for x in ["lazy", "logo", "avatar", "icon"]):
+                if u not in images:
+                    images.append(u)
+    return images
+
+def extract_magicemperor_images(html: str) -> list[str]:
+    content_match = re.search(r'<div[^>]*class=["\'][^"\']*entry-content[^"\']*["\'][^>]*>(.*?)</div>\s*<!-- \.entry-content -->', html, re.DOTALL | re.IGNORECASE)
+    search_scope = content_match.group(1) if content_match else html
+    raw = re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', search_scope, re.IGNORECASE)
+    images = []
+    for u in raw:
+        u = u.strip()
+        if u and not u.startswith("data:") and not any(x in u.lower() for x in ["logo", "avatar", "icon", "banner"]):
+            if u not in images:
+                images.append(u)
+    return images
+
+def extract_arenascan_images(html: str) -> list[str]:
+    raw = re.findall(r'<img[^>]+(?:data-src|src)=["\'](https?://[^"\']+)["\']', html, re.IGNORECASE)
+    images = []
+    for u in raw:
+        u = u.strip()
+        if "arena-bucket" in u or "arenascan.com/wp-content/uploads" in u:
+            if not any(x in u.lower() for x in ["logo", "icon", "avatar", "banner"]):
+                if u not in images:
+                    images.append(u)
+    return images
+
+def extract_html_navigation(html: str, target_url: str):
+    parsed = urllib.parse.urlparse(target_url)
+    domain = parsed.netloc.lower()
+    base_url = f"{parsed.scheme}://{parsed.netloc}"
+
+    next_url, prev_url = None, None
+    if "mangak.io" in domain:
+        m = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, re.DOTALL)
+        if m:
+            try:
+                data = json.loads(m.group(1))
+                page_props = data.get("props", {}).get("pageProps", {})
+                nxt = page_props.get("nextChapter")
+                prv = page_props.get("previousChapter")
+                if nxt and nxt.get("url"):
+                    next_url = urllib.parse.urljoin(base_url, nxt["url"])
+                if prv and prv.get("url"):
+                    prev_url = urllib.parse.urljoin(base_url, prv["url"])
+            except Exception:
+                pass
+    elif "mgeko.cc" in domain:
+        nxt = re.search(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*class=["\'][^"\']*(?:nextchap|next)[^"\']*["\']', html, re.I) or \
+              re.search(r'<a[^>]+class=["\'][^"\']*(?:nextchap|next)[^"\']*["\'][^>]+href=["\']([^"\']+)["\']', html, re.I)
+        prv = re.search(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*class=["\'][^"\']*(?:prevchap|prev)[^"\']*["\']', html, re.I) or \
+              re.search(r'<a[^>]+class=["\'][^"\']*(?:prevchap|prev)[^"\']*["\'][^>]+href=["\']([^"\']+)["\']', html, re.I)
+        if nxt:
+            next_url = urllib.parse.urljoin(base_url, nxt.group(1))
+        if prv:
+            prev_url = urllib.parse.urljoin(base_url, prv.group(1))
+    else:
+        nxt = re.search(r'<a[^>]+rel=["\']next["\'][^>]*href=["\']([^"\']+)["\']', html, re.I) or \
+              re.search(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*rel=["\']next["\']', html, re.I) or \
+              re.search(r'<div[^>]*class=["\'][^"\']*next-post[^"\']*["\'][^>]*>\s*<a[^>]+href=["\']([^"\']+)["\']', html, re.I) or \
+              re.search(r'<a[^>]+class=["\'][^"\']*(?:next_page|btn-next)[^"\']*["\'][^>]+href=["\']([^"\']+)["\']', html, re.I)
+        prv = re.search(r'<a[^>]+rel=["\']prev(?:ious)?["\'][^>]*href=["\']([^"\']+)["\']', html, re.I) or \
+              re.search(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*rel=["\']prev(?:ious)?["\']', html, re.I) or \
+              re.search(r'<div[^>]*class=["\'][^"\']*prev-post[^"\']*["\'][^>]*>\s*<a[^>]+href=["\']([^"\']+)["\']', html, re.I) or \
+              re.search(r'<a[^>]+class=["\'][^"\']*(?:prev_page|btn-prev)[^"\']*["\'][^>]+href=["\']([^"\']+)["\']', html, re.I)
+        if nxt:
+            next_url = urllib.parse.urljoin(base_url, nxt.group(1))
+        if prv:
+            prev_url = urllib.parse.urljoin(base_url, prv.group(1))
+
+    next_info = None
+    if next_url:
+        m = re.search(r'chapter[/-](\d+)', next_url, re.I)
+        next_info = {"url": next_url, "number": int(m.group(1)) if m else None}
+
+    prev_info = None
+    if prev_url:
+        m = re.search(r'chapter[/-](\d+)', prev_url, re.I)
+        prev_info = {"url": prev_url, "number": int(m.group(1)) if m else None}
+
+    return next_info, prev_info
+
 def extract_generic_images(html: str) -> list[str]:
-    for extractor in [extract_manhuatop_images, extract_asurascans_images, extract_ravenscans_images]:
+    for extractor in [
+        extract_manhuatop_images,
+        extract_asurascans_images,
+        extract_ravenscans_images,
+        extract_mangak_images,
+        extract_mgeko_images,
+        extract_levelingwithgods_images,
+        extract_pickmeupgacha_images,
+        extract_magicemperor_images,
+        extract_arenascan_images,
+    ]:
         imgs = extractor(html)
         if imgs:
             return imgs
@@ -146,6 +446,36 @@ def extract_chapter_images_by_domain(html: str, target_url: str) -> list[str]:
     domain = parsed.netloc.lower()
     if domain.startswith("www."):
         domain = domain[4:]
+
+    if domain.endswith("mangafire.to"):
+        data = mangafire_provider.get_mangafire_chapter_data(target_url)
+        return data.get("images", [])
+
+    if domain.endswith("comix.to"):
+        data = comix_provider.get_comix_chapter_data(target_url)
+        return data.get("images", [])
+
+    if domain.endswith("manhuaus.com"):
+        data = manhuaus_provider.get_manhuaus_chapter_data(target_url)
+        return data.get("images", [])
+
+    if domain.endswith("mangak.io"):
+        return extract_mangak_images(html)
+
+    if domain.endswith("mgeko.cc"):
+        return extract_mgeko_images(html)
+
+    if domain.endswith("levelingwithgods.com"):
+        return extract_levelingwithgods_images(html)
+
+    if domain.endswith("pickmeupgacha.com"):
+        return extract_pickmeupgacha_images(html)
+
+    if domain.endswith("magicemperor.online"):
+        return extract_magicemperor_images(html)
+
+    if domain.endswith("arenascan.com"):
+        return extract_arenascan_images(html)
 
     extractors = {
         "asurascans.com": extract_asurascans_images,
@@ -161,6 +491,103 @@ def get_chapter_images():
     if not target_url:
         return jsonify({"error": "Parâmetro url é obrigatório"}), 400
 
+    parsed = urllib.parse.urlparse(target_url)
+    domain = parsed.netloc.lower()
+    if domain.startswith("www."):
+        domain = domain[4:]
+
+    if domain == "mangafire.to":
+        try:
+            data = mangafire_provider.get_mangafire_chapter_data(target_url)
+
+            # Sync database if there is a matching MangaFire manhua
+            db_data = load_data()
+            updated = False
+            for m in db_data:
+                if "mangafire.to" in m.get("urlTemplate", "").lower():
+                    m_hid, _ = mangafire_provider.parse_mangafire_url(m.get("urlTemplate", ""))
+                    t_hid, _ = mangafire_provider.parse_mangafire_url(target_url)
+                    if m_hid and m_hid == t_hid:
+                        if data.get("chapter") is not None:
+                            m["currentChapter"] = data["chapter"]
+                        if data.get("chapterId") is not None:
+                            m["chapterId"] = data["chapterId"]
+                        if data.get("next") is not None:
+                            m["nextChapter"] = data["next"]
+                        if data.get("prev") is not None:
+                            m["prevChapter"] = data["prev"]
+                        m["updatedAt"] = int(time.time())
+                        updated = True
+                        break
+            if updated:
+                save_data(db_data)
+
+            return jsonify(data)
+        except Exception as e:
+            return jsonify({"error": str(e), "images": []}), 500
+
+    if domain == "comix.to":
+        try:
+            data = comix_provider.get_comix_chapter_data(target_url)
+            if "status" not in data:
+                data["status"] = "ok"
+
+            # Sync database if there is a matching Comix manhua
+            db_data = load_data()
+            updated = False
+            for m in db_data:
+                if "comix.to" in m.get("urlTemplate", "").lower():
+                    m_slug, _, _ = comix_provider.parse_comix_url(m.get("urlTemplate", ""))
+                    t_slug, _, _ = comix_provider.parse_comix_url(target_url)
+                    if m_slug and m_slug == t_slug:
+                        if data.get("chapter") is not None:
+                            m["currentChapter"] = data["chapter"]
+                        if data.get("chapterId") is not None:
+                            m["chapterId"] = data["chapterId"]
+                        if data.get("next") is not None:
+                            m["nextChapter"] = data["next"]
+                        if data.get("prev") is not None:
+                            m["prevChapter"] = data["prev"]
+                        m["updatedAt"] = int(time.time())
+                        updated = True
+                        break
+            if updated:
+                save_data(db_data)
+
+            return jsonify(data)
+        except Exception as e:
+            return jsonify({"error": str(e), "images": []}), 500
+
+    if domain == "manhuaus.com":
+        try:
+            data = manhuaus_provider.get_manhuaus_chapter_data(target_url)
+            if "status" not in data:
+                data["status"] = "ok"
+
+            # Sync database if there is a matching Manhuaus manhua
+            db_data = load_data()
+            updated = False
+            for m in db_data:
+                if "manhuaus.com" in m.get("urlTemplate", "").lower():
+                    m_slug, _ = manhuaus_provider.parse_manhuaus_url(m.get("urlTemplate", ""))
+                    t_slug, _ = manhuaus_provider.parse_manhuaus_url(target_url)
+                    if m_slug and m_slug == t_slug:
+                        if data.get("chapter") is not None:
+                            m["currentChapter"] = data["chapter"]
+                        if data.get("next") is not None:
+                            m["nextChapter"] = data["next"]
+                        if data.get("prev") is not None:
+                            m["prevChapter"] = data["prev"]
+                        m["updatedAt"] = int(time.time())
+                        updated = True
+                        break
+            if updated:
+                save_data(db_data)
+
+            return jsonify(data)
+        except Exception as e:
+            return jsonify({"error": str(e), "images": []}), 500
+
     try:
         req = urllib.request.Request(
             target_url,
@@ -173,12 +600,39 @@ def get_chapter_images():
             html = resp.read().decode("utf-8", errors="ignore")
 
         chapter_imgs = extract_chapter_images_by_domain(html, target_url)
+        next_info, prev_info = extract_html_navigation(html, target_url)
 
-        return jsonify({
+        res_payload = {
             "status": "ok",
             "count": len(chapter_imgs),
             "images": chapter_imgs
-        })
+        }
+        if next_info:
+            res_payload["next"] = next_info
+        if prev_info:
+            res_payload["prev"] = prev_info
+
+        # Sync database if there is a matching manhua
+        db_data = load_data()
+        updated = False
+        for m in db_data:
+            tmpl = m.get("urlTemplate", "")
+            if tmpl:
+                tmpl_domain = urllib.parse.urlparse(tmpl).netloc.lower()
+                if tmpl_domain.startswith("www."):
+                    tmpl_domain = tmpl_domain[4:]
+                if tmpl_domain and (tmpl_domain in domain or domain in tmpl_domain):
+                    if next_info:
+                        m["nextChapter"] = next_info
+                    if prev_info:
+                        m["prevChapter"] = prev_info
+                    m["updatedAt"] = int(time.time())
+                    updated = True
+                    break
+        if updated:
+            save_data(db_data)
+
+        return jsonify(res_payload)
     except Exception as e:
         return jsonify({"error": str(e), "images": []}), 500
 
@@ -189,21 +643,39 @@ def proxy_image():
         return jsonify({"error": "Parâmetro url é obrigatório"}), 400
 
     parsed = urllib.parse.urlparse(img_url)
-    if "asurascans.com" in parsed.netloc.lower():
+    netloc = parsed.netloc.lower()
+    custom_cookie = None
+    user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+    if "asurascans.com" in netloc:
         referer = "https://asurascans.com/"
-    elif "ravenscans.org" in parsed.netloc.lower():
+    elif "ravenscans.org" in netloc:
         referer = "https://ravenscans.org/"
+    elif "mangafire.to" in netloc or "mfcdn" in netloc:
+        referer = "https://mangafire.to/"
+    elif ".site" in netloc or "comix.to" in netloc:
+        referer = None
+    elif "qvzr" in netloc or "mangak.io" in netloc:
+        referer = "https://mangak.io/"
+    elif "manhuaus.com" in netloc:
+        referer = "https://manhuaus.com/"
+        user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        clearance = manhuaus_provider.get_cached_clearance()
+        if clearance:
+            custom_cookie = f"cf_clearance={clearance}"
     else:
         referer = f"{parsed.scheme}://{parsed.netloc}/"
 
     try:
-        req = urllib.request.Request(
-            img_url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Referer": referer
-            }
-        )
+        headers = {
+            "User-Agent": user_agent
+        }
+        if referer:
+            headers["Referer"] = referer
+        if custom_cookie:
+            headers["Cookie"] = custom_cookie
+
+        req = urllib.request.Request(img_url, headers=headers)
         with urllib.request.urlopen(req, timeout=20) as resp:
             content = resp.read()
             content_type = resp.headers.get("Content-Type", "image/jpeg")
