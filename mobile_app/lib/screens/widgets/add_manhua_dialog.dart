@@ -32,9 +32,15 @@ class _AddManhuaDialogState extends State<AddManhuaDialog> {
 
     String urlTemplate = rawUrl;
     if (!urlTemplate.contains('{chapter}')) {
-      final reg = RegExp('(?<=[^0-9]|^)$chapter(?=[^0-9]|\$)');
-      if (reg.hasMatch(rawUrl)) {
-        urlTemplate = rawUrl.replaceFirst(reg, '{chapter}');
+      if (rawUrl.contains('mangafire.to')) {
+        urlTemplate = rawUrl.replaceFirst(RegExp(r'/chapter/\d+'), '/chapter/{chapter}');
+      } else if (rawUrl.contains('comix.to')) {
+        urlTemplate = rawUrl.replaceFirst(RegExp(r'/\d+-chapter-\d+'), '/{chapter}');
+      } else {
+        final reg = RegExp('(?<=[^0-9]|^)$chapter(?=[^0-9]|\$)');
+        if (reg.hasMatch(rawUrl)) {
+          urlTemplate = rawUrl.replaceFirst(reg, '{chapter}');
+        }
       }
     }
 
