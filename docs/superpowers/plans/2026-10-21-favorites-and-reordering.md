@@ -1,6 +1,6 @@
 # Favoritos e Reordenação Manual Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Implementar o sistema de favoritos com ícone de estrela e a reordenação manual de obras nas interfaces Web e Mobile (Flutter), assegurando no backend e frontend que obras favoritas nunca fiquem abaixo de não-favoritas e que atualizações de leitura promovam o item ao topo do seu respectivo grupo.
 
@@ -29,7 +29,7 @@
 - Consumes: `load_data()`, `save_data(data)`
 - Produces: `sort_manhuas(data) -> list[dict]`, `GET /api/manhuas` ordenando por `isFavorite DESC, customOrder ASC, updatedAt DESC`.
 
-- [ ] **Step 1: Write the failing test for sorting with favorites and customOrder**
+- [x] **Step 1: Write the failing test for sorting with favorites and customOrder**
 
 Adicionar em `tests/test_server.py`:
 ```python
@@ -51,12 +51,12 @@ def test_get_manhuas_sorted_by_favorite_and_custom_order(client, temp_db):
     assert ids == [4, 2, 3, 1]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./.venv/bin/pytest tests/test_server.py -k test_get_manhuas_sorted_by_favorite_and_custom_order -v`  
 Expected: FAIL (assertion error porque a lista atualmente ordena apenas por `updatedAt DESC`).
 
-- [ ] **Step 3: Write minimal implementation in `server.py`**
+- [x] **Step 3: Write minimal implementation in `server.py`**
 
 Em `server.py`, adicione a função auxiliar `sort_manhuas` e atualize `get_manhuas`:
 ```python
@@ -76,12 +76,12 @@ def get_manhuas():
     return jsonify(sort_manhuas(data))
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `./.venv/bin/pytest tests/test_server.py -k test_get_manhuas_sorted_by_favorite_and_custom_order -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server.py tests/test_server.py
@@ -102,7 +102,7 @@ git commit -m "feat(backend): add sorting by isFavorite and customOrder"
   - Suporte a `{"isFavorite": bool}` promovendo a obra para o topo do seu grupo (`customOrder = min_group_order - 1`).
   - Suporte a `chapter` e `delta` aplicando a regra híbrida (`customOrder = min_group_order - 1`).
 
-- [ ] **Step 1: Write the failing tests for favorite toggle and hybrid reading update**
+- [x] **Step 1: Write the failing tests for favorite toggle and hybrid reading update**
 
 Adicionar em `tests/test_server.py`:
 ```python
@@ -147,12 +147,12 @@ def test_patch_chapter_moves_to_top_of_group(client, temp_db):
     assert manhuas[1]["id"] == 10
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./.venv/bin/pytest tests/test_server.py -k "test_patch_favorite_toggle or test_patch_chapter_moves_to_top_of_group" -v`  
 Expected: FAIL
 
-- [ ] **Step 3: Implement favorite toggle and hybrid reading update in `server.py`**
+- [x] **Step 3: Implement favorite toggle and hybrid reading update in `server.py`**
 
 Em `server.py`, dentro de `update_chapter(item_id)`:
 ```python
@@ -173,12 +173,12 @@ Em `server.py`, dentro de `update_chapter(item_id)`:
                 m["customOrder"] = min_order - 1
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `./.venv/bin/pytest tests/test_server.py -k "test_patch_favorite_toggle or test_patch_chapter_moves_to_top_of_group" -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server.py tests/test_server.py
@@ -197,7 +197,7 @@ git commit -m "feat(backend): implement favorite toggle and hybrid chapter promo
 - Produces: `PUT /api/manhuas/reorder` com payload `{"order": [id1, id2, ...]}`
 - Retorna `{"status": "ok", "items": [...]}` com integridade de favoritas preservada.
 
-- [ ] **Step 1: Write failing tests for reorder endpoint and constraint enforcement**
+- [x] **Step 1: Write failing tests for reorder endpoint and constraint enforcement**
 
 Adicionar em `tests/test_server.py`:
 ```python
@@ -233,12 +233,12 @@ def test_put_reorder_enforces_favorites_on_top(client, temp_db):
     assert [m["id"] for m in ordered] == [1, 2]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./.venv/bin/pytest tests/test_server.py -k "test_put_reorder_valid or test_put_reorder_enforces_favorites_on_top" -v`  
 Expected: FAIL (404/405 endpoint não existe).
 
-- [ ] **Step 3: Implement `PUT /api/manhuas/reorder` in `server.py`**
+- [x] **Step 3: Implement `PUT /api/manhuas/reorder` in `server.py`**
 
 Adicionar em `server.py`:
 ```python
@@ -281,17 +281,17 @@ def reorder_manhuas():
     return jsonify({"status": "ok", "items": sort_manhuas(data)})
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `./.venv/bin/pytest tests/test_server.py -k "test_put_reorder_valid or test_put_reorder_enforces_favorites_on_top" -v`  
 Expected: PASS
 
-- [ ] **Step 5: Run all backend tests to guarantee zero regression**
+- [x] **Step 5: Run all backend tests to guarantee zero regression**
 
 Run: `./.venv/bin/pytest tests/`  
 Expected: All tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add server.py tests/test_server.py
@@ -314,7 +314,7 @@ git commit -m "feat(backend): add reorder endpoint enforcing favorites constrain
   - Cancelamento via tecla `Esc` ou botão cancelar.
   - Persistência chamando `PUT /api/manhuas/reorder`.
 
-- [ ] **Step 1: Add HTML/CSS for favorites, section titles, and move mode in `index.html`**
+- [x] **Step 1: Add HTML/CSS for favorites, section titles, and move mode in `index.html`**
 
 Adicionar estilos CSS em `index.html`:
 ```css
@@ -335,7 +335,7 @@ Adicionar estilos CSS em `index.html`:
 .card.moving-selected { border-color: var(--primary); box-shadow: 0 0 15px rgba(130, 87, 230, 0.4); }
 ```
 
-- [ ] **Step 2: Update JavaScript rendering logic in `index.html`**
+- [x] **Step 2: Update JavaScript rendering logic in `index.html`**
 
 Implementar no `<script>` de `index.html`:
 - Estado `movingItem = null;`
@@ -346,7 +346,7 @@ Implementar no `<script>` de `index.html`:
 - Renderização dividida em Seções (Favoritas e Comuns) com inserção de marcadores apenas no bloco da obra selecionada.
 - Handler do `keydown` para cancelar com tecla `Escape`.
 
-- [ ] **Step 3: Test Web behavior manually or via pytest endpoint checks**
+- [x] **Step 3: Test Web behavior manually or via pytest endpoint checks**
 
 Verificar se `index.html` carrega corretamente e possui os identificadores esperados via teste em `tests/test_server.py`:
 ```python
@@ -359,12 +359,12 @@ def test_web_index_contains_reorder_and_favorite_elements(client):
     assert "/api/manhuas/reorder" in html
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `./.venv/bin/pytest tests/test_server.py -k test_web_index_contains_reorder_and_favorite_elements -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add index.html tests/test_server.py
@@ -387,7 +387,7 @@ git commit -m "feat(web): add favorite stars and inline manual reorder mode"
   - `Future<Manhua> toggleFavorite(int id, bool isFavorite)`
   - `Future<void> reorderManhuas(List<int> orderedIds)`
 
-- [ ] **Step 1: Write failing tests for `Manhua` model**
+- [x] **Step 1: Write failing tests for `Manhua` model**
 
 Criar `mobile_app/test/manhua_model_test.dart`:
 ```dart
@@ -431,16 +431,16 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter test test/manhua_model_test.dart`  
 Expected: FAIL (compilation error: `isFavorite` not found).
 
-- [ ] **Step 3: Update `mobile_app/lib/models/manhua.dart`**
+- [x] **Step 3: Update `mobile_app/lib/models/manhua.dart`**
 
 Adicionar campos `isFavorite` (default `false`) e `customOrder` (opcional `int?`) em `Manhua`, construtor, `fromJson`, `toJson` e `copyWith`.
 
-- [ ] **Step 4: Update `mobile_app/lib/services/api_service.dart`**
+- [x] **Step 4: Update `mobile_app/lib/services/api_service.dart`**
 
 Adicionar os métodos:
 ```dart
@@ -472,12 +472,12 @@ Future<void> reorderManhuas(List<int> orderedIds) async {
 }
 ```
 
-- [ ] **Step 5: Run flutter test to verify it passes**
+- [x] **Step 5: Run flutter test to verify it passes**
 
 Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter test test/manhua_model_test.dart`  
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add mobile_app/lib/models/manhua.dart mobile_app/lib/services/api_service.dart mobile_app/test/manhua_model_test.dart
@@ -497,17 +497,17 @@ git commit -m "feat(mobile): add isFavorite and customOrder to model and api ser
   - `Future<void> toggleFavorite(int id)`: atualiza estado e sincroniza.
   - `Future<void> saveReorder(List<int> orderedIds)`: envia nova ordem e recarrega lista.
 
-- [ ] **Step 1: Write failing tests for `ManhuaController`**
+- [x] **Step 1: Write failing tests for `ManhuaController`**
 
 Criar `mobile_app/test/manhua_controller_test.dart` mockando `ApiService`:
 Testar alternância de favoritos e reordenação.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter test test/manhua_controller_test.dart`  
 Expected: FAIL (`toggleFavorite` e `saveReorder` indefinidos no controller).
 
-- [ ] **Step 3: Implement methods in `ManhuaController`**
+- [x] **Step 3: Implement methods in `ManhuaController`**
 
 Adicionar em `mobile_app/lib/controllers/manhua_controller.dart`:
 ```dart
@@ -539,12 +539,12 @@ Future<void> saveReorder(List<int> orderedIds) async {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter test test/manhua_controller_test.dart`  
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mobile_app/lib/controllers/manhua_controller.dart mobile_app/test/manhua_controller_test.dart
@@ -568,16 +568,16 @@ git commit -m "feat(mobile): add toggleFavorite and saveReorder in controller"
     - `Demais Obras (Y)`
   - Botões `Concluir` (salva união das listas) e `Cancelar`.
 
-- [ ] **Step 1: Write widget test for `HomeScreen` favorite star and edit mode button**
+- [x] **Step 1: Write widget test for `HomeScreen` favorite star and edit mode button**
 
 Criar `mobile_app/test/home_screen_reorder_test.dart` verificando a presença do botão de editar ordem e das estrelas nos cards.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter test test/home_screen_reorder_test.dart`  
 Expected: FAIL.
 
-- [ ] **Step 3: Implement UI in `mobile_app/lib/screens/home_screen.dart`**
+- [x] **Step 3: Implement UI in `mobile_app/lib/screens/home_screen.dart`**
 
 1. Adicionar estado:
    ```dart
@@ -599,17 +599,17 @@ Expected: FAIL.
      - `ReorderableListView.builder` contendo apenas `_editingOthers`.
    - Garantindo que o usuário só pode arrastar itens dentro do seu próprio bloco.
 
-- [ ] **Step 4: Run flutter tests to verify they pass**
+- [x] **Step 4: Run flutter tests to verify they pass**
 
 Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter test`  
 Expected: All Flutter tests pass.
 
-- [ ] **Step 5: Run flutter analyze to verify zero lint errors**
+- [x] **Step 5: Run flutter analyze to verify zero lint errors**
 
 Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter analyze`  
 Expected: No issues found.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add mobile_app/lib/screens/home_screen.dart mobile_app/test/home_screen_reorder_test.dart
@@ -623,23 +623,23 @@ git commit -m "feat(mobile): add favorites and separate reorderable sections in 
 **Files:**
 - None (verificação e reinício do serviço)
 
-- [ ] **Step 1: Run all Python tests**
+- [x] **Step 1: Run all Python tests**
 
 Run: `./.venv/bin/pytest tests/ -v`  
 Expected: All backend tests pass.
 
-- [ ] **Step 2: Run all Flutter tests**
+- [x] **Step 2: Run all Flutter tests**
 
 Run: `cd mobile_app && /home/thiagofdso/development/flutter/bin/flutter test`  
 Expected: All mobile tests pass.
 
-- [ ] **Step 3: Restart and verify systemd service**
+- [x] **Step 3: Restart and verify systemd service**
 
 Run: `systemctl --user restart manhua-manager.service`  
 Run: `systemctl --user status manhua-manager.service --no-pager`  
 Expected: Service is active (running).
 
-- [ ] **Step 4: Commit any remaining updates**
+- [x] **Step 4: Commit any remaining updates**
 
 ```bash
 git status
