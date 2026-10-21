@@ -174,6 +174,22 @@
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .modal-header h2 { font-size: 1.2rem; }
     .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+    /* Seletor de Dias da Semana */
+    .weekday-selector { display: flex; gap: 4px; margin-bottom: 12px; }
+    .weekday-btn { flex: 1; padding: 6px 2px; font-size: 0.8rem; font-weight: 600; background: #18181b; border: 1px solid var(--card-border); border-radius: 6px; color: var(--muted); cursor: pointer; text-align: center; }
+    .weekday-btn:hover { border-color: var(--primary); color: #fff; }
+    .weekday-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+    /* Notificações */
+    .notif-bell-container { position: relative; display: inline-flex; }
+    .notif-badge { position: absolute; top: -4px; right: -4px; background: #ef4444; color: #fff; font-size: 0.7rem; font-weight: bold; border-radius: 10px; padding: 1px 5px; min-width: 16px; text-align: center; }
+    .notif-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #18181b; border: 1px solid var(--card-border); border-radius: 8px; margin-bottom: 8px; }
+    .notif-item:hover { border-color: var(--primary); }
+    .notif-content { flex: 1; cursor: pointer; }
+    .notif-content h4 { font-size: 0.95rem; font-weight: 600; color: #fff; }
+    .notif-content p { font-size: 0.8rem; color: var(--primary-hover); margin-top: 2px; }
+    .notif-content time { font-size: 0.7rem; color: var(--muted); }
   </style>
 </head>
 <body>
@@ -184,6 +200,12 @@
       <header>
         <h1>Meus Manhuas</h1>
         <div style="display: flex; gap: 8px; align-items: center;">
+          <div class="notif-bell-container">
+            <button id="notifBell" class="action-btn" onclick="openNotificationModal()" title="Notificações">
+              🔔
+            </button>
+            <span id="notificationBadge" class="notif-badge" style="display:none;">0</span>
+          </div>
           <button id="btnActiveDownloadsHeader" class="btn btn-secondary btn-sm" style="display: none; background: #8257e6; color: #fff; font-weight: 600;" onclick="openActiveDownloadsModal()">
             📥 Baixando (<span id="activeDownloadsCount">0</span>)
           </button>
@@ -200,6 +222,26 @@
         <input type="url" id="rawUrl" placeholder="https://exemplo.com/manga/chapter-197/" />
         <label>Capítulo Atual</label>
         <input type="number" id="chapter" placeholder="197" />
+
+        <label>Dia de Atualização (Semanal)</label>
+        <div class="weekday-selector" id="addWeekdaySelector">
+          <button type="button" class="weekday-btn" data-day="0" onclick="selectWeekday('add', 0)">Seg</button>
+          <button type="button" class="weekday-btn" data-day="1" onclick="selectWeekday('add', 1)">Ter</button>
+          <button type="button" class="weekday-btn" data-day="2" onclick="selectWeekday('add', 2)">Qua</button>
+          <button type="button" class="weekday-btn" data-day="3" onclick="selectWeekday('add', 3)">Qui</button>
+          <button type="button" class="weekday-btn" data-day="4" onclick="selectWeekday('add', 4)">Sex</button>
+          <button type="button" class="weekday-btn" data-day="5" onclick="selectWeekday('add', 5)">Sáb</button>
+          <button type="button" class="weekday-btn" data-day="6" onclick="selectWeekday('add', 6)">Dom</button>
+        </div>
+
+        <label>Último Episódio Lançado (opcional)</label>
+        <input type="number" id="lastChapter" placeholder="Ex: 245 (deixe vazio se ilimitado)" />
+
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <input type="checkbox" id="isHiatus" style="width: auto; margin-bottom: 0;" />
+          <label for="isHiatus" style="margin-bottom: 0; cursor: pointer;">Obra em Hiato (lançamento suspenso)</label>
+        </div>
+
         <button class="btn w-full" onclick="saveNewManhua()">Cadastrar</button>
       </div>
 
@@ -306,10 +348,51 @@
       <label>Capítulo Atual</label>
       <input type="number" id="editChapter" placeholder="197" />
 
+      <label>Dia de Atualização (Semanal)</label>
+      <div class="weekday-selector" id="editWeekdaySelector">
+        <button type="button" class="weekday-btn" data-day="0" onclick="selectWeekday('edit', 0)">Seg</button>
+        <button type="button" class="weekday-btn" data-day="1" onclick="selectWeekday('edit', 1)">Ter</button>
+        <button type="button" class="weekday-btn" data-day="2" onclick="selectWeekday('edit', 2)">Qua</button>
+        <button type="button" class="weekday-btn" data-day="3" onclick="selectWeekday('edit', 3)">Qui</button>
+        <button type="button" class="weekday-btn" data-day="4" onclick="selectWeekday('edit', 4)">Sex</button>
+        <button type="button" class="weekday-btn" data-day="5" onclick="selectWeekday('edit', 5)">Sáb</button>
+        <button type="button" class="weekday-btn" data-day="6" onclick="selectWeekday('edit', 6)">Dom</button>
+      </div>
+
+      <label>Último Episódio Lançado (opcional)</label>
+      <input type="number" id="editLastChapter" placeholder="Ex: 245 (deixe vazio se ilimitado)" />
+
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <input type="checkbox" id="editIsHiatus" style="width: auto; margin-bottom: 0;" />
+        <label for="editIsHiatus" style="margin-bottom: 0; cursor: pointer;">Obra em Hiato (lançamento suspenso)</label>
+      </div>
+
       <div class="modal-actions">
         <button class="btn btn-secondary w-full" onclick="closeEditModal()">Cancelar</button>
         <button class="btn w-full" onclick="saveEditManhua()">Salvar Alterações</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE NOTIFICAÇÕES -->
+  <div id="notificationModal" class="modal-backdrop">
+    <div class="modal-box" style="max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h2>Notificações</h2>
+        <button class="action-btn" onclick="closeNotificationModal()">✕</button>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+        <button id="btnTriggerManualCheck" class="btn btn-secondary btn-sm" onclick="triggerManualCheck()">
+          🔄 Verificar Atualizações Agora
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="clearAllNotifications()">
+          🗑️ Limpar todas
+        </button>
+      </div>
+
+      <div id="notifStatusMsg" style="display: none; font-size: 0.85rem; color: var(--primary-hover); margin-bottom: 8px;"></div>
+      <div id="notificationList"></div>
     </div>
   </div>
 
@@ -390,6 +473,27 @@
       navigator.serviceWorker.register('/sw.js').catch(console.error);
     }
 
+    const WEEKDAY_NAMES = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+    let addSelectedWeekday = null;
+    let editSelectedWeekday = null;
+    let notifications = [];
+
+    function selectWeekday(formType, dayIndex) {
+      if (formType === 'add') {
+        addSelectedWeekday = addSelectedWeekday === dayIndex ? null : dayIndex;
+        document.querySelectorAll('#addWeekdaySelector .weekday-btn').forEach(btn => {
+          const d = parseInt(btn.getAttribute('data-day'), 10);
+          btn.classList.toggle('active', d === addSelectedWeekday);
+        });
+      } else {
+        editSelectedWeekday = editSelectedWeekday === dayIndex ? null : dayIndex;
+        document.querySelectorAll('#editWeekdaySelector .weekday-btn').forEach(btn => {
+          const d = parseInt(btn.getAttribute('data-day'), 10);
+          btn.classList.toggle('active', d === editSelectedWeekday);
+        });
+      }
+    }
+
     let manhuas = [];
     let selectedManhua = null;
     let readerManhua = null;
@@ -406,8 +510,104 @@
         .replace(/'/g, '&#039;');
     }
 
+    async function loadNotifications() {
+      try {
+        const res = await fetch('/api/notifications');
+        notifications = await res.json();
+        const badge = document.getElementById('notificationBadge');
+        if (notifications.length > 0) {
+          badge.innerText = notifications.length;
+          badge.style.display = 'block';
+        } else {
+          badge.style.display = 'none';
+        }
+        renderNotificationList();
+      } catch (err) {
+        console.error('Erro ao carregar notificações:', err);
+      }
+    }
+
+    function renderNotificationList() {
+      const listEl = document.getElementById('notificationList');
+      if (!listEl) return;
+      if (!notifications.length) {
+        listEl.innerHTML = '<p style="text-align: center; color: var(--muted); padding: 20px 0;">Nenhuma notificação no momento.</p>';
+        return;
+      }
+      listEl.innerHTML = notifications.map(n => `
+        <div class="notif-item">
+          <div class="notif-content" onclick="openNotifManhua(${n.manhuaId}, ${n.id})">
+            <h4>${escapeHtml(n.title)}</h4>
+            <p>${escapeHtml(n.message)}</p>
+            <time>${new Date(n.createdAt * 1000).toLocaleString()}</time>
+          </div>
+          <button class="action-btn" title="Dispensar notificação" onclick="dismissNotification(${n.id}, event)">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function openNotificationModal() {
+      loadNotifications();
+      document.getElementById('notificationModal').classList.add('active');
+    }
+
+    function closeNotificationModal() {
+      document.getElementById('notificationModal').classList.remove('active');
+      document.getElementById('notifStatusMsg').style.display = 'none';
+    }
+
+    async function dismissNotification(id, event) {
+      if (event) event.stopPropagation();
+      try {
+        await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
+        await loadNotifications();
+      } catch (err) {
+        console.error('Erro ao dispensar notificação:', err);
+      }
+    }
+
+    async function clearAllNotifications() {
+      try {
+        await fetch('/api/notifications', { method: 'DELETE' });
+        await loadNotifications();
+      } catch (err) {
+        console.error('Erro ao limpar notificações:', err);
+      }
+    }
+
+    async function openNotifManhua(manhuaId, notifId) {
+      await dismissNotification(notifId);
+      closeNotificationModal();
+      openReader(manhuaId);
+    }
+
+    async function triggerManualCheck() {
+      const statusEl = document.getElementById('notifStatusMsg');
+      const btn = document.getElementById('btnTriggerManualCheck');
+      statusEl.style.display = 'block';
+      statusEl.innerText = 'Verificando atualizações em segundo plano...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/routine/run-check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ checkAll: false })
+        });
+        const data = await res.json();
+        statusEl.innerText = `Concluído: ${data.checkedCount} verificadas, ${data.newChaptersFound} novo(s) episódio(s) encontrado(s).`;
+        await loadData();
+        await loadNotifications();
+      } catch (err) {
+        statusEl.innerText = 'Erro ao executar verificação: ' + err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
     async function loadData() {
       try {
+        loadNotifications();
         const res = await fetch('/api/manhuas');
         manhuas = await res.json();
         renderList();
@@ -516,6 +716,9 @@
 
       const renderCard = (m) => {
         const isSelected = movingItem && movingItem.id === m.id;
+        const chapterText = `Capítulo ${m.currentChapter}${m.lastChapter != null ? ' / ' + m.lastChapter : ''}`;
+        const dayBadge = m.updateDay != null ? `<span class="badge" style="background:#29292e;color:#a8a8b3;margin-left:4px;">${WEEKDAY_NAMES[m.updateDay]}</span>` : '';
+        const hiatusBadge = m.isHiatus ? `<span class="badge" style="background:rgba(229,120,120,0.2);color:#e57878;margin-left:4px;">⏸️ Hiato</span>` : '';
         return `
           <div class="card manhua-item ${isSelected ? 'moving-selected' : ''}">
             <button class="star-btn ${m.isFavorite ? 'active' : 'inactive'}" onclick="toggleFavorite(${m.id}, event)" title="${m.isFavorite ? 'Remover dos favoritos' : 'Favoritar obra'}">
@@ -523,7 +726,11 @@
             </button>
             <div class="manhua-info" onclick="openReader(${m.id}, event)" title="Clique para ler o capítulo atual">
               <h3 style="font-size: 1.05rem; font-weight: 600;">${escapeHtml(m.title)}</h3>
-              <span class="badge">Capítulo ${m.currentChapter} • Ler agora 📖</span>
+              <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
+                <span class="badge">${chapterText} • Ler agora 📖</span>
+                ${dayBadge}
+                ${hiatusBadge}
+              </div>
             </div>
             <div class="item-actions">
               <button class="action-btn" title="Downloads Offline" onclick="openDownloadModal(${m.id}, event)">📥</button>
@@ -583,6 +790,9 @@
       const title = document.getElementById('title').value.trim();
       const rawUrl = document.getElementById('rawUrl').value.trim();
       const chapter = parseInt(document.getElementById('chapter').value, 10);
+      const lastChapterVal = document.getElementById('lastChapter').value.trim();
+      const lastChapter = lastChapterVal !== '' ? parseInt(lastChapterVal, 10) : null;
+      const isHiatus = document.getElementById('isHiatus').checked;
 
       if (!title || !rawUrl || isNaN(chapter)) return alert('Preencha todos os campos!');
 
@@ -602,13 +812,23 @@
       await fetch('/api/manhuas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, urlTemplate, currentChapter: chapter })
+        body: JSON.stringify({
+          title,
+          urlTemplate,
+          currentChapter: chapter,
+          lastChapter,
+          updateDay: addSelectedWeekday,
+          isHiatus
+        })
       });
 
       toggleForm();
       document.getElementById('title').value = '';
       document.getElementById('rawUrl').value = '';
       document.getElementById('chapter').value = '';
+      document.getElementById('lastChapter').value = '';
+      document.getElementById('isHiatus').checked = false;
+      selectWeekday('add', null);
       loadData();
     }
 
@@ -662,6 +882,10 @@
 
     async function changeSelectedChapter(delta) {
       if (!selectedManhua) return;
+      if (delta > 0 && selectedManhua.lastChapter != null && selectedManhua.currentChapter >= selectedManhua.lastChapter) {
+        alert(`Você já está no último episódio disponível (${selectedManhua.lastChapter}).`);
+        return;
+      }
       const res = await fetch(`/api/manhuas/${selectedManhua.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -677,6 +901,11 @@
       const input = document.getElementById('manualChapterInput');
       const val = parseInt(input.value, 10);
       if (isNaN(val) || val < 1) return;
+
+      if (selectedManhua.lastChapter != null && val > selectedManhua.lastChapter) {
+        alert(`O capítulo informado (${val}) ultrapassa o último episódio disponível (${selectedManhua.lastChapter}).`);
+        return;
+      }
 
       const res = await fetch(`/api/manhuas/${selectedManhua.id}`, {
         method: 'PATCH',
@@ -802,6 +1031,10 @@
 
     async function changeReaderChapter(delta) {
       if (!readerManhua) return;
+      if (delta > 0 && readerManhua.lastChapter != null && readerManhua.currentChapter >= readerManhua.lastChapter) {
+        alert(`Você já está no último episódio disponível (${readerManhua.lastChapter}).`);
+        return;
+      }
       const res = await fetch(`/api/manhuas/${readerManhua.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -833,6 +1066,9 @@
       document.getElementById('editTitle').value = item.title;
       document.getElementById('editUrl').value = item.urlTemplate;
       document.getElementById('editChapter').value = item.currentChapter;
+      document.getElementById('editLastChapter').value = item.lastChapter != null ? item.lastChapter : '';
+      document.getElementById('editIsHiatus').checked = Boolean(item.isHiatus);
+      selectWeekday('edit', item.updateDay);
 
       document.getElementById('editModal').classList.add('active');
     }
@@ -846,6 +1082,9 @@
       const title = document.getElementById('editTitle').value.trim();
       const rawUrl = document.getElementById('editUrl').value.trim();
       const chapter = parseInt(document.getElementById('editChapter').value, 10);
+      const lastChapterVal = document.getElementById('editLastChapter').value.trim();
+      const lastChapter = lastChapterVal !== '' ? parseInt(lastChapterVal, 10) : null;
+      const isHiatus = document.getElementById('editIsHiatus').checked;
 
       if (!title || !rawUrl || isNaN(chapter)) {
         return alert('Preencha todos os campos corretamente!');
@@ -872,7 +1111,10 @@
         body: JSON.stringify({
           title,
           urlTemplate,
-          chapter
+          chapter,
+          lastChapter,
+          updateDay: editSelectedWeekday,
+          isHiatus
         })
       });
 
@@ -1375,6 +1617,10 @@
           cancelMove();
           return;
         }
+        if (document.getElementById('notificationModal').classList.contains('active')) {
+          closeNotificationModal();
+          return;
+        }
         if (document.getElementById('editModal').classList.contains('active')) {
           closeEditModal();
           return;
@@ -1393,16 +1639,23 @@
         }
       }
 
-      if (document.getElementById('editModal').classList.contains('active') ||
+      if (document.getElementById('notificationModal').classList.contains('active') ||
+          document.getElementById('editModal').classList.contains('active') ||
           document.getElementById('downloadModal').classList.contains('active') ||
           document.getElementById('storageModal').classList.contains('active') ||
           document.getElementById('activeDownloadsModal').classList.contains('active')) return;
 
       if (e.key === 'ArrowRight') {
         if (document.getElementById('readerView').classList.contains('active')) {
+          if (readerManhua && readerManhua.lastChapter != null && readerManhua.currentChapter >= readerManhua.lastChapter) {
+            return;
+          }
           e.preventDefault();
           changeReaderChapter(1);
         } else if (document.getElementById('detailView').classList.contains('active')) {
+          if (selectedManhua && selectedManhua.lastChapter != null && selectedManhua.currentChapter >= selectedManhua.lastChapter) {
+            return;
+          }
           e.preventDefault();
           changeSelectedChapter(1);
         }
