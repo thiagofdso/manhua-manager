@@ -684,6 +684,18 @@ def test_put_reorder_enforces_favorites_on_top(client):
     assert [m["id"] for m in ordered] == [1, 2]
 
 
+def test_web_index_contains_reorder_and_favorite_elements(client):
+    res = client.get("/")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    assert "toggleFavorite" in html
+    assert "startMoveItem" in html
+    assert "/api/manhuas/reorder" in html
+    assert "star-btn" in html
+    assert "move-slot" in html
+
+
+
 
 
 

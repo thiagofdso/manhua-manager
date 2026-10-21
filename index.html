@@ -54,6 +54,93 @@
     .action-btn { background: #29292e; border: 1px solid var(--card-border); color: #fff; border-radius: 8px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.1rem; transition: background 0.2s, border-color 0.2s; text-decoration: none; }
     .action-btn:hover { background: #3a3a42; border-color: var(--primary); }
 
+    /* Favoritos e Reordenação */
+    .star-btn {
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s, color 0.2s;
+    }
+    .star-btn:hover { transform: scale(1.25); }
+    .star-btn.active { color: #f59e0b; text-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+    .star-btn.inactive { color: #52525b; }
+    .star-btn.inactive:hover { color: #e4e4e7; }
+
+    .section-header {
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin: 22px 0 10px 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-header span {
+      background: #29292e;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .move-banner {
+      background: rgba(130, 87, 230, 0.12);
+      border: 1px solid var(--primary);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      animation: fadeIn 0.2s ease-in-out;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+    .card.moving-selected {
+      border-color: var(--primary) !important;
+      box-shadow: 0 0 18px rgba(130, 87, 230, 0.45);
+      background: #272238;
+    }
+
+    .move-slot {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 6px 0;
+      animation: fadeIn 0.2s ease-in-out;
+    }
+    .move-slot-btn {
+      background: #18181b;
+      border: 1px dashed var(--primary);
+      color: var(--text);
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .move-slot-btn:hover {
+      background: var(--primary);
+      color: #fff;
+      border-style: solid;
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(130, 87, 230, 0.4);
+    }
+
     /* Tela de Detalhes / Leitura */
     .detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
     .nav-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
@@ -226,6 +313,17 @@
     let selectedManhua = null;
     let readerManhua = null;
     let previousView = 'listView';
+    let movingItem = null;
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
 
     async function loadData() {
       try {
@@ -248,6 +346,67 @@
       }
     }
 
+    async function toggleFavorite(id, event) {
+      if (event) event.stopPropagation();
+      const item = manhuas.find(m => m.id === id);
+      if (!item) return;
+      const newFav = !item.isFavorite;
+      try {
+        await fetch(`/api/manhuas/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isFavorite: newFav })
+        });
+        await loadData();
+      } catch (err) {
+        console.error('Erro ao alternar favorito:', err);
+      }
+    }
+
+    function startMoveItem(id, event) {
+      if (event) event.stopPropagation();
+      movingItem = manhuas.find(m => m.id === id) || null;
+      renderList();
+    }
+
+    function cancelMove() {
+      movingItem = null;
+      renderList();
+    }
+
+    async function moveItemTo(isFavGroup, targetIndex) {
+      if (!movingItem) return;
+      const isFav = Boolean(movingItem.isFavorite);
+      const favorites = manhuas.filter(m => Boolean(m.isFavorite));
+      const others = manhuas.filter(m => !m.isFavorite);
+
+      const group = isFav ? [...favorites] : [...others];
+      const curIdx = group.findIndex(m => m.id === movingItem.id);
+      if (curIdx !== -1) {
+        group.splice(curIdx, 1);
+      }
+
+      const adjustedTarget = targetIndex > curIdx ? targetIndex - 1 : targetIndex;
+      group.splice(adjustedTarget, 0, movingItem);
+
+      const newFavorites = isFav ? group : favorites;
+      const newOthers = isFav ? others : group;
+      const fullList = [...newFavorites, ...newOthers];
+      const orderedIds = fullList.map(m => m.id);
+
+      try {
+        await fetch('/api/manhuas/reorder', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order: orderedIds })
+        });
+        movingItem = null;
+        await loadData();
+      } catch (err) {
+        console.error('Erro ao salvar reordenação:', err);
+      }
+    }
+
     function renderList() {
       const listEl = document.getElementById('manhuaList');
       if (!manhuas.length) {
@@ -255,18 +414,82 @@
         return;
       }
 
-      listEl.innerHTML = manhuas.map(m => `
-        <div class="card manhua-item">
-          <div class="manhua-info" onclick="openReader(${m.id}, event)" title="Clique para ler o capítulo atual">
-            <h3 style="font-size: 1.05rem; font-weight: 600;">${m.title}</h3>
-            <span class="badge">Capítulo ${m.currentChapter} • Ler agora 📖</span>
+      const favorites = manhuas.filter(m => Boolean(m.isFavorite));
+      const others = manhuas.filter(m => !m.isFavorite);
+
+      let html = '';
+
+      if (movingItem) {
+        html += `
+          <div class="move-banner">
+            <div>
+              <strong>↕ Movendo: ${escapeHtml(movingItem.title)}</strong>
+              <div style="font-size: 0.85rem; color: var(--muted); margin-top: 2px;">
+                Selecione um marcador <em>"Mover para cá"</em> para definir a nova posição.
+              </div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="cancelMove()">✕ Cancelar (Esc)</button>
           </div>
-          <div class="item-actions">
-            <button class="action-btn" title="Visualizar e Gerenciar" onclick="selectManhua(${m.id}, event)">👁️</button>
-            <button class="action-btn" title="Editar Obra" onclick="openEditModal(${m.id}, event)">✏️</button>
+        `;
+      }
+
+      const renderCard = (m) => {
+        const isSelected = movingItem && movingItem.id === m.id;
+        return `
+          <div class="card manhua-item ${isSelected ? 'moving-selected' : ''}">
+            <button class="star-btn ${m.isFavorite ? 'active' : 'inactive'}" onclick="toggleFavorite(${m.id}, event)" title="${m.isFavorite ? 'Remover dos favoritos' : 'Favoritar obra'}">
+              ${m.isFavorite ? '★' : '☆'}
+            </button>
+            <div class="manhua-info" onclick="openReader(${m.id}, event)" title="Clique para ler o capítulo atual">
+              <h3 style="font-size: 1.05rem; font-weight: 600;">${escapeHtml(m.title)}</h3>
+              <span class="badge">Capítulo ${m.currentChapter} • Ler agora 📖</span>
+            </div>
+            <div class="item-actions">
+              <button class="action-btn" title="Mover posição" onclick="startMoveItem(${m.id}, event)">↕</button>
+              <button class="action-btn" title="Visualizar e Gerenciar" onclick="selectManhua(${m.id}, event)">👁️</button>
+              <button class="action-btn" title="Editar Obra" onclick="openEditModal(${m.id}, event)">✏️</button>
+            </div>
           </div>
-        </div>
-      `).join('');
+        `;
+      };
+
+      const renderSection = (title, items, isFavGroup) => {
+        let secHtml = '';
+        if (favorites.length > 0) {
+          secHtml += `<div class="section-header">${title} <span>${items.length}</span></div>`;
+        }
+
+        const showSlots = movingItem && Boolean(movingItem.isFavorite) === isFavGroup;
+
+        if (showSlots) {
+          const curIdx = items.findIndex(m => m.id === movingItem.id);
+          if (curIdx > 0) {
+            secHtml += `<div class="move-slot"><button class="move-slot-btn" onclick="moveItemTo(${isFavGroup}, 0)">⬆ Mover para o topo</button></div>`;
+          }
+          items.forEach((m, idx) => {
+            secHtml += renderCard(m);
+            if (idx !== curIdx && idx !== curIdx - 1) {
+              const targetIdx = idx + 1;
+              secHtml += `<div class="move-slot"><button class="move-slot-btn" onclick="moveItemTo(${isFavGroup}, ${targetIdx})">↕ Mover para cá</button></div>`;
+            }
+          });
+        } else {
+          items.forEach(m => {
+            secHtml += renderCard(m);
+          });
+        }
+        return secHtml;
+      };
+
+      if (favorites.length > 0) {
+        html += renderSection('★ Obras Favoritas', favorites, true);
+      }
+      if (others.length > 0) {
+        const title = favorites.length > 0 ? 'Todas as Obras' : 'Meus Manhuas';
+        html += renderSection(title, others, false);
+      }
+
+      listEl.innerHTML = html;
     }
 
     function toggleForm() {
@@ -283,9 +506,15 @@
 
       let urlTemplate = rawUrl;
       if (!urlTemplate.includes('{chapter}')) {
-        const regex = new RegExp(`(?<=[^0-9]|^)${chapter}(?=[^0-9]|$)`);
-        if (!regex.test(rawUrl)) return alert('O número do capítulo não foi localizado na URL.');
-        urlTemplate = rawUrl.replace(regex, '{chapter}');
+        if (/mangafire\.to/i.test(rawUrl)) {
+          urlTemplate = rawUrl.replace(/\/chapter\/\d+/, '/chapter/{chapter}');
+        } else if (/comix\.to/i.test(rawUrl)) {
+          urlTemplate = rawUrl.replace(/\/\d+-chapter-\d+/, '/{chapter}');
+        } else {
+          const regex = new RegExp(`(?<=[^0-9]|^)${chapter}(?=[^0-9]|$)`);
+          if (!regex.test(rawUrl)) return alert('O número do capítulo não foi localizado na URL.');
+          urlTemplate = rawUrl.replace(regex, '{chapter}');
+        }
       }
 
       await fetch('/api/manhuas', {
@@ -321,12 +550,28 @@
       if (target) target.classList.add('active');
     }
 
+    function resolveTargetUrl(manhua) {
+      if (!manhua) return '';
+      if (manhua.urlTemplate.includes('comix.to') && manhua.chapterId) {
+        if (manhua.urlTemplate.includes('{chapter}')) {
+          return manhua.urlTemplate.replace('{chapter}', `${manhua.chapterId}-chapter-${manhua.currentChapter}`);
+        }
+        return manhua.urlTemplate.replace(/\/\d+-chapter-\d+/, `/${manhua.chapterId}-chapter-${manhua.currentChapter}`);
+      }
+      if (manhua.urlTemplate.includes('mangafire.to') && manhua.chapterId) {
+        return manhua.urlTemplate.includes('{chapter}')
+          ? manhua.urlTemplate.replace('{chapter}', manhua.chapterId)
+          : manhua.urlTemplate.replace(/\/chapter\/\d+/, `/chapter/${manhua.chapterId}`);
+      }
+      return manhua.urlTemplate.replace('{chapter}', manhua.currentChapter);
+    }
+
     function renderDetails() {
       if (!selectedManhua) return;
       document.title = `${selectedManhua.title} ${selectedManhua.currentChapter}`;
       document.getElementById('detailTitle').innerText = selectedManhua.title;
       document.getElementById('detailChapter').innerText = selectedManhua.currentChapter;
-      const targetUrl = selectedManhua.urlTemplate.replace('{chapter}', selectedManhua.currentChapter);
+      const targetUrl = resolveTargetUrl(selectedManhua);
       
       const btnExt = document.getElementById('btnExternalRead');
       btnExt.href = targetUrl;
@@ -386,7 +631,7 @@
     function updateReaderHeader() {
       if (!readerManhua) return;
       document.title = `${readerManhua.title} ${readerManhua.currentChapter}`;
-      const url = readerManhua.urlTemplate.replace('{chapter}', readerManhua.currentChapter);
+      const url = resolveTargetUrl(readerManhua);
       document.getElementById('readerTitle').innerText = readerManhua.title;
       document.getElementById('readerSubtitle').innerText = `Capítulo ${readerManhua.currentChapter}`;
       document.getElementById('btnReaderExternal').href = url;
@@ -407,7 +652,7 @@
       errorEl.style.display = 'none';
       footer.style.display = 'none';
 
-      const targetUrl = readerManhua.urlTemplate.replace('{chapter}', readerManhua.currentChapter);
+      const targetUrl = resolveTargetUrl(readerManhua);
 
       try {
         const res = await fetch(`/api/chapter-images?url=${encodeURIComponent(targetUrl)}`);
@@ -415,7 +660,13 @@
 
         loading.style.display = 'none';
 
-        if (data.status === 'ok' && data.images && data.images.length > 0) {
+        if ((data.status === 'ok' || Array.isArray(data.images)) && data.images && data.images.length > 0) {
+          if (data.chapter) readerManhua.currentChapter = data.chapter;
+          if (data.chapterId) readerManhua.chapterId = data.chapterId;
+          if (data.next) readerManhua.nextChapter = data.next;
+          if (data.prev) readerManhua.prevChapter = data.prev;
+          updateReaderHeader();
+
           container.innerHTML = data.images.map((imgUrl, idx) => `
             <img 
               src="/api/proxy-image?url=${encodeURIComponent(imgUrl)}" 
@@ -495,11 +746,17 @@
 
       let urlTemplate = rawUrl;
       if (!urlTemplate.includes('{chapter}')) {
-        const regex = new RegExp(`(?<=[^0-9]|^)${chapter}(?=[^0-9]|$)`);
-        if (!regex.test(rawUrl)) {
-          return alert('O número do capítulo não foi localizado na URL informada para gerar o template.');
+        if (/mangafire\.to/i.test(rawUrl)) {
+          urlTemplate = rawUrl.replace(/\/chapter\/\d+/, '/chapter/{chapter}');
+        } else if (/comix\.to/i.test(rawUrl)) {
+          urlTemplate = rawUrl.replace(/\/\d+-chapter-\d+/, '/{chapter}');
+        } else {
+          const regex = new RegExp(`(?<=[^0-9]|^)${chapter}(?=[^0-9]|$)`);
+          if (!regex.test(rawUrl)) {
+            return alert('O número do capítulo não foi localizado na URL informada para gerar o template.');
+          }
+          urlTemplate = rawUrl.replace(regex, '{chapter}');
         }
-        urlTemplate = rawUrl.replace(regex, '{chapter}');
       }
 
       await fetch(`/api/manhuas/${id}`, {
@@ -516,9 +773,21 @@
       loadData();
     }
 
-    // Navegação por teclas de seta (ArrowLeft e ArrowRight)
+    // Teclas de navegação e cancelamento
     window.addEventListener('keydown', (e) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+      if (e.key === 'Escape') {
+        if (movingItem) {
+          cancelMove();
+          return;
+        }
+        if (document.getElementById('editModal').classList.contains('active')) {
+          closeEditModal();
+          return;
+        }
+      }
+
       if (document.getElementById('editModal').classList.contains('active')) return;
 
       if (e.key === 'ArrowRight') {
