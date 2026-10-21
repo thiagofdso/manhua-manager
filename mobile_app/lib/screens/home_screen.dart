@@ -15,6 +15,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool _isEditingOrder = false;
+  List<Manhua> _editingFavorites = [];
+  List<Manhua> _editingOthers = [];
+
   @override
   void initState() {
     super.initState();
@@ -23,13 +27,51 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _enterEditOrderMode(List<Manhua> manhuas) {
+    setState(() {
+      _isEditingOrder = true;
+      _editingFavorites = manhuas.where((m) => m.isFavorite).toList();
+      _editingOthers = manhuas.where((m) => !m.isFavorite).toList();
+    });
+  }
+
+  void _cancelEditOrder() {
+    setState(() {
+      _isEditingOrder = false;
+      _editingFavorites = [];
+      _editingOthers = [];
+    });
+  }
+
+  Future<void> _saveEditOrder() async {
+    final controller = context.read<ManhuaController>();
+    final orderedIds = [
+      ..._editingFavorites.map((m) => m.id),
+      ..._editingOthers.map((m) => m.id),
+    ];
+    setState(() {
+      _isEditingOrder = false;
+    });
+    await controller.saveReorder(orderedIds);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ordem da lista atualizada com sucesso!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   void _openReader(Manhua manhua) {
+    final controller = context.read<ManhuaController>();
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => ReaderScreen(manhua: manhua)),
     ).then((_) {
-      // Recarrega dados ao voltar do leitor para sincronizar capítulo atual
-      context.read<ManhuaController>().loadManhuas();
+      if (mounted) {
+        controller.loadManhuas();
+      }
     });
   }
 
@@ -63,44 +105,68 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
-          children: [
-            Icon(Icons.auto_stories, color: Color(0xFF8257E6)),
-            SizedBox(width: 10),
-            Text('Manhua Manager', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Configurar IP do Backend',
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (_) => const SettingsDialog(),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Atualizar Lista',
-            onPressed: () => controller.loadManhuas(),
-          ),
-        ],
+        title: _isEditingOrder
+            ? const Text('Editar Ordem', style: TextStyle(fontWeight: FontWeight.bold))
+            : const Row(
+                children: [
+                  Icon(Icons.auto_stories, color: Color(0xFF8257E6)),
+                  SizedBox(width: 10),
+                  Text('Manhua Manager', style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+        actions: _isEditingOrder
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Cancelar',
+                  onPressed: _cancelEditOrder,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.check, color: Color(0xFF8257E6)),
+                  tooltip: 'Concluir',
+                  onPressed: _saveEditOrder,
+                ),
+              ]
+            : [
+                IconButton(
+                  icon: const Icon(Icons.sort_rounded),
+                  tooltip: 'Editar Ordem da Lista',
+                  onPressed: controller.manhuas.isEmpty
+                      ? null
+                      : () => _enterEditOrderMode(controller.manhuas),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined),
+                  tooltip: 'Configurar IP do Backend',
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => const SettingsDialog(),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Atualizar Lista',
+                  onPressed: () => controller.loadManhuas(),
+                ),
+              ],
       ),
       body: _buildBody(controller),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFF8257E6),
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Adicionar Obra'),
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (_) => const AddManhuaDialog(),
-          );
-        },
-      ),
+      floatingActionButton: _isEditingOrder
+          ? null
+          : FloatingActionButton.extended(
+              backgroundColor: const Color(0xFF8257E6),
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text('Adicionar Obra'),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (_) => const AddManhuaDialog(),
+                );
+              },
+            ),
     );
   }
 
@@ -184,6 +250,10 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    if (_isEditingOrder) {
+      return _buildReorderList();
+    }
+
     return RefreshIndicator(
       color: const Color(0xFF8257E6),
       onRefresh: () => controller.loadManhuas(),
@@ -198,15 +268,28 @@ class _HomeScreenState extends State<HomeScreen> {
             margin: const EdgeInsets.only(bottom: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: Color(0xFF323238)),
+              side: BorderSide(
+                color: manhua.isFavorite
+                    ? const Color(0x66F59E0B)
+                    : const Color(0xFF323238),
+              ),
             ),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () => _openReader(manhua),
               child: Padding(
-                padding: const EdgeInsets.all(14.0),
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
                 child: Row(
                   children: [
+                    // Botão de Favoritar
+                    IconButton(
+                      icon: Icon(
+                        manhua.isFavorite ? Icons.star : Icons.star_border,
+                        color: manhua.isFavorite ? const Color(0xFFF59E0B) : Colors.grey,
+                      ),
+                      tooltip: manhua.isFavorite ? 'Remover dos favoritos' : 'Favoritar',
+                      onPressed: () => controller.toggleFavorite(manhua.id),
+                    ),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,6 +382,166 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildReorderList() {
+    return CustomScrollView(
+      slivers: [
+        if (_editingFavorites.isNotEmpty) ...[
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.star, color: Color(0xFFF59E0B), size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    '★ Obras Favoritas (${_editingFavorites.length})',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Color(0xFFF59E0B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SliverReorderableList(
+            itemCount: _editingFavorites.length,
+            onReorderItem: (oldIndex, newIndex) {
+              setState(() {
+                final item = _editingFavorites.removeAt(oldIndex);
+                _editingFavorites.insert(newIndex, item);
+              });
+            },
+            itemBuilder: (context, index) {
+              final manhua = _editingFavorites[index];
+              return _buildReorderCard(
+                key: ValueKey('fav_${manhua.id}'),
+                index: index,
+                manhua: manhua,
+                isFav: true,
+              );
+            },
+          ),
+        ],
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.menu_book, color: Colors.grey, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  _editingFavorites.isNotEmpty
+                      ? 'Demais Obras (${_editingOthers.length})'
+                      : 'Todas as Obras (${_editingOthers.length})',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        SliverReorderableList(
+          itemCount: _editingOthers.length,
+          onReorderItem: (oldIndex, newIndex) {
+            setState(() {
+              final item = _editingOthers.removeAt(oldIndex);
+              _editingOthers.insert(newIndex, item);
+            });
+          },
+          itemBuilder: (context, index) {
+            final manhua = _editingOthers[index];
+            return _buildReorderCard(
+              key: ValueKey('other_${manhua.id}'),
+              index: index,
+              manhua: manhua,
+              isFav: false,
+            );
+          },
+        ),
+        const SliverToBoxAdapter(
+          child: SizedBox(height: 80),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReorderCard({
+    required Key key,
+    required int index,
+    required Manhua manhua,
+    required bool isFav,
+  }) {
+    return Container(
+      key: key,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Card(
+        color: const Color(0xFF202024),
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: isFav
+                ? const Color(0x80F59E0B)
+                : const Color(0xFF323238),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                isFav ? Icons.star : Icons.star_border,
+                color: isFav ? const Color(0xFFF59E0B) : Colors.grey,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      manhua.title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Capítulo ${manhua.currentChapter}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8257E6),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ReorderableDragStartListener(
+                index: index,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  child: const Icon(
+                    Icons.drag_handle_rounded,
+                    color: Colors.grey,
+                    size: 26,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
