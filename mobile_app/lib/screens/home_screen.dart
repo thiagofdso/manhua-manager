@@ -152,7 +152,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
       ),
-      body: _buildBody(controller),
+      body: Column(
+        children: [
+          if (controller.isOfflineMode)
+            Container(
+              width: double.infinity,
+              color: const Color(0xFFD97706),
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.cloud_off, size: 16, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text(
+                    'Modo Offline: exibindo lista salva localmente',
+                    style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(child: _buildBody(controller)),
+        ],
+      ),
       floatingActionButton: _isEditingOrder
           ? null
           : FloatingActionButton.extended(

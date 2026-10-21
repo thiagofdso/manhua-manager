@@ -6,6 +6,7 @@ import 'package:mobile_app/services/storage_service.dart';
 
 class FakeStorageService extends StorageService {
   String url = 'http://100.84.57.79:5000';
+  List<Manhua> cached = [];
 
   @override
   Future<String> getBaseUrl() async => url;
@@ -14,6 +15,14 @@ class FakeStorageService extends StorageService {
   Future<void> setBaseUrl(String newUrl) async {
     url = newUrl;
   }
+
+  @override
+  Future<void> saveCachedManhuas(List<Manhua> manhuas) async {
+    cached = List.from(manhuas);
+  }
+
+  @override
+  Future<List<Manhua>> getCachedManhuas() async => cached;
 }
 
 class FakeApiService extends ApiService {
@@ -77,6 +86,7 @@ class FakeApiService extends ApiService {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('ManhuaController Test', () {
     test('loadManhuas deve carregar lista no controller', () async {
       final fakeApi = FakeApiService();

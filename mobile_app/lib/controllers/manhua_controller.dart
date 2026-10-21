@@ -10,6 +10,7 @@ class ManhuaController extends ChangeNotifier {
   List<Manhua> _manhuas = [];
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isOfflineMode = false;
   String _baseUrl = 'http://100.84.57.79:5000';
 
   ManhuaController({
@@ -23,6 +24,7 @@ class ManhuaController extends ChangeNotifier {
   List<Manhua> get manhuas => _manhuas;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  bool get isOfflineMode => _isOfflineMode;
   String get baseUrl => _baseUrl;
   ApiService get apiService => _apiService;
 
@@ -44,9 +46,19 @@ class ManhuaController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _manhuas = await _apiService.fetchManhuas();
+      final list = await _apiService.fetchManhuas();
+      _manhuas = list;
+      _isOfflineMode = false;
+      await _storageService.saveCachedManhuas(list);
     } catch (e) {
-      _errorMessage = e.toString();
+      final cached = await _storageService.getCachedManhuas();
+      if (cached.isNotEmpty) {
+        _manhuas = cached;
+        _isOfflineMode = true;
+        _errorMessage = null;
+      } else {
+        _errorMessage = e.toString();
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -59,11 +71,25 @@ class ManhuaController extends ChangeNotifier {
       final idx = _manhuas.indexWhere((m) => m.id == id);
       if (idx != -1) {
         _manhuas[idx] = updated;
+        await _storageService.saveCachedManhuas(_manhuas);
         notifyListeners();
       }
     } catch (e) {
-      _errorMessage = 'Erro ao alterar capítulo: $e';
-      notifyListeners();
+      if (_isOfflineMode) {
+        final idx = _manhuas.indexWhere((m) => m.id == id);
+        if (idx != -1) {
+          final current = _manhuas[idx];
+          final nextChap = current.currentChapter + delta;
+          if (nextChap >= 1) {
+            _manhuas[idx] = current.copyWith(currentChapter: nextChap);
+            await _storageService.saveCachedManhuas(_manhuas);
+            notifyListeners();
+          }
+        }
+      } else {
+        _errorMessage = e.toString();
+        notifyListeners();
+      }
     }
   }
 
