@@ -106,5 +106,55 @@ void main() {
       final proxyUrl = await api.getProxyImageUrl('https://cdn.com/1.webp');
       expect(proxyUrl, 'http://100.84.57.79:5000/api/proxy-image?url=https%3A%2F%2Fcdn.com%2F1.webp');
     });
+
+    test('toggleFavorite deve enviar PATCH com isFavorite e retornar manhua', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.path, '/api/manhuas/10');
+        expect(request.method, 'PATCH');
+        final body = jsonDecode(request.body);
+        expect(body['isFavorite'], true);
+        return http.Response(
+          jsonEncode({
+            'status': 'ok',
+            'item': {
+              'id': 10,
+              'title': 'Overgeared',
+              'urlTemplate': 'https://example.com/{chapter}',
+              'currentChapter': 204,
+              'isFavorite': true,
+              'customOrder': 0,
+            }
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final storage = FakeStorageService();
+      final api = ApiService(client: mockClient, storageService: storage);
+
+      final res = await api.toggleFavorite(10, true);
+      expect(res.isFavorite, true);
+      expect(res.customOrder, 0);
+    });
+
+    test('reorderManhuas deve enviar PUT com lista de IDs ordenados', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.path, '/api/manhuas/reorder');
+        expect(request.method, 'PUT');
+        final body = jsonDecode(request.body);
+        expect(body['order'], [2, 1, 3]);
+        return http.Response(
+          jsonEncode({'status': 'ok'}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final storage = FakeStorageService();
+      final api = ApiService(client: mockClient, storageService: storage);
+
+      await expectLater(api.reorderManhuas([2, 1, 3]), completes);
+    });
   });
 }

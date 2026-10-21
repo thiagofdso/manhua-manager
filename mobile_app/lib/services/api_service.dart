@@ -95,6 +95,33 @@ class ApiService {
     }
   }
 
+  Future<Manhua> toggleFavorite(int id, bool isFavorite) async {
+    final base = await _baseUrl();
+    final res = await _client.patch(
+      Uri.parse('$base/api/manhuas/$id'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'isFavorite': isFavorite}),
+    );
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      return Manhua.fromJson(data['item'] as Map<String, dynamic>);
+    } else {
+      throw Exception('Falha ao alternar favorito: ${res.statusCode}');
+    }
+  }
+
+  Future<void> reorderManhuas(List<int> orderedIds) async {
+    final base = await _baseUrl();
+    final res = await _client.put(
+      Uri.parse('$base/api/manhuas/reorder'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'order': orderedIds}),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('Falha ao reordenar manhuas: ${res.statusCode}');
+    }
+  }
+
   Future<List<String>> fetchChapterImages(String targetUrl) async {
     final base = await _baseUrl();
     final uri = Uri.parse('$base/api/chapter-images').replace(
