@@ -271,6 +271,41 @@ def delete_manhua(item_id):
     save_data(data)
     return jsonify({"status": "ok"})
 
+@app.route("/api/manhuas/reorder", methods=["PUT"])
+def reorder_manhuas():
+    payload = request.get_json() or {}
+    order_ids = payload.get("order")
+    if not isinstance(order_ids, list):
+        return jsonify({"error": "Campo 'order' deve ser uma lista de IDs"}), 400
+
+    data = load_data()
+    id_map = {m["id"]: m for m in data}
+
+    fav_items = []
+    non_fav_items = []
+
+    for item_id in order_ids:
+        if item_id in id_map:
+            item = id_map.pop(item_id)
+            if item.get("isFavorite", False):
+                fav_items.append(item)
+            else:
+                non_fav_items.append(item)
+
+    for rem in id_map.values():
+        if rem.get("isFavorite", False):
+            fav_items.append(rem)
+        else:
+            non_fav_items.append(rem)
+
+    final_ordered = fav_items + non_fav_items
+
+    for idx, item in enumerate(final_ordered):
+        item["customOrder"] = idx
+
+    save_data(data)
+    return jsonify({"status": "ok", "items": sort_manhuas(data)})
+
 def extract_manhuatop_images(html: str) -> list[str]:
     raw_imgs = re.findall(r'<img[^>]+src=[\"\']([^\"\']+)[\"\'][^>]*class=[\"\'][^\"\']*wp-manga-chapter-img[^\"\']*[\"\']', html, re.IGNORECASE)
     raw_imgs += re.findall(r'<img[^>]+class=[\"\'][^\"\']*wp-manga-chapter-img[^\"\']*[\"\'][^>]+src=[\"\']([^\"\']+)[\"\']', html, re.IGNORECASE)

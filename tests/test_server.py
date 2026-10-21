@@ -652,6 +652,39 @@ def test_patch_chapter_moves_to_top_of_group(client):
     assert manhuas[1]["id"] == 10
 
 
+def test_put_reorder_valid(client):
+    items = [
+        {"id": 1, "title": "A", "urlTemplate": "https://example.com/{chapter}", "currentChapter": 1, "isFavorite": True, "customOrder": 0},
+        {"id": 2, "title": "B", "urlTemplate": "https://example.com/{chapter}", "currentChapter": 1, "isFavorite": True, "customOrder": 1},
+        {"id": 3, "title": "C", "urlTemplate": "https://example.com/{chapter}", "currentChapter": 1, "isFavorite": False, "customOrder": 2},
+    ]
+    with open(server.DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(items, f)
+
+    # Inverte as favoritas [2, 1, 3]
+    res = client.put("/api/manhuas/reorder", json={"order": [2, 1, 3]})
+    assert res.status_code == 200
+    ordered = client.get("/api/manhuas").get_json()
+    assert [m["id"] for m in ordered] == [2, 1, 3]
+
+
+def test_put_reorder_enforces_favorites_on_top(client):
+    items = [
+        {"id": 1, "title": "Fav", "urlTemplate": "https://example.com/{chapter}", "currentChapter": 1, "isFavorite": True, "customOrder": 0},
+        {"id": 2, "title": "Comum", "urlTemplate": "https://example.com/{chapter}", "currentChapter": 1, "isFavorite": False, "customOrder": 1},
+    ]
+    with open(server.DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(items, f)
+
+    # Tenta colocar a Comum antes da Fav [2, 1]
+    res = client.put("/api/manhuas/reorder", json={"order": [2, 1]})
+    assert res.status_code == 200
+    ordered = client.get("/api/manhuas").get_json()
+    # A regra de ouro deve autocorrigir garantindo que Fav sempre fique antes de Comum
+    assert [m["id"] for m in ordered] == [1, 2]
+
+
+
 
 
 
