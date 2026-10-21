@@ -118,4 +118,31 @@ class ManhuaController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> toggleFavorite(int id) async {
+    final index = _manhuas.indexWhere((m) => m.id == id);
+    if (index == -1) return;
+    final current = _manhuas[index];
+    final newStatus = !current.isFavorite;
+
+    try {
+      await _apiService.toggleFavorite(id, newStatus);
+      await loadManhuas();
+    } catch (e) {
+      _errorMessage = 'Erro ao alternar favorito: $e';
+      notifyListeners();
+    }
+  }
+
+  Future<void> saveReorder(List<int> orderedIds) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await _apiService.reorderManhuas(orderedIds);
+      await loadManhuas();
+    } catch (e) {
+      _errorMessage = 'Erro ao salvar reordenação: $e';
+      notifyListeners();
+    }
+  }
 }

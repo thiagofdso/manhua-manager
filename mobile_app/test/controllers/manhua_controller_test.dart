@@ -55,6 +55,25 @@ class FakeApiService extends ApiService {
   Future<void> deleteManhua(int id) async {
     items.removeWhere((m) => m.id == id);
   }
+
+  @override
+  Future<Manhua> toggleFavorite(int id, bool isFavorite) async {
+    final idx = items.indexWhere((m) => m.id == id);
+    final updated = items[idx].copyWith(isFavorite: isFavorite);
+    items[idx] = updated;
+    return updated;
+  }
+
+  @override
+  Future<void> reorderManhuas(List<int> orderedIds) async {
+    final map = {for (var m in items) m.id: m};
+    items.clear();
+    for (var id in orderedIds) {
+      if (map.containsKey(id)) {
+        items.add(map[id]!);
+      }
+    }
+  }
 }
 
 void main() {
@@ -102,6 +121,31 @@ void main() {
       await controller.loadManhuas();
       await controller.deleteManhua(1);
       expect(controller.manhuas.isEmpty, true);
+    });
+
+    test('toggleFavorite deve alternar favorito e recarregar lista', () async {
+      final fakeApi = FakeApiService();
+      final fakeStorage = FakeStorageService();
+      final controller = ManhuaController(apiService: fakeApi, storageService: fakeStorage);
+
+      await controller.loadManhuas();
+      expect(controller.manhuas.first.isFavorite, false);
+
+      await controller.toggleFavorite(1);
+      expect(controller.manhuas.first.isFavorite, true);
+    });
+
+    test('saveReorder deve salvar nova ordem e atualizar lista', () async {
+      final fakeApi = FakeApiService();
+      fakeApi.items.add(Manhua(id: 2, title: 'Item 2', urlTemplate: 'http://ex/{chapter}', currentChapter: 1));
+      final fakeStorage = FakeStorageService();
+      final controller = ManhuaController(apiService: fakeApi, storageService: fakeStorage);
+
+      await controller.loadManhuas();
+      expect(controller.manhuas.map((m) => m.id).toList(), [1, 2]);
+
+      await controller.saveReorder([2, 1]);
+      expect(controller.manhuas.map((m) => m.id).toList(), [2, 1]);
     });
   });
 }
