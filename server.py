@@ -13,6 +13,7 @@ import manhuaus_provider
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(BASE_DIR, "database.json")
+NOTIFICATIONS_FILE = os.path.join(BASE_DIR, "notifications.json")
 
 app = Flask(__name__, static_folder=BASE_DIR)
 CORS(app)
@@ -29,6 +30,48 @@ def load_data():
 def save_data(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_notifications():
+    if not os.path.exists(NOTIFICATIONS_FILE):
+        return []
+    try:
+        with open(NOTIFICATIONS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+def save_notifications(data):
+    with open(NOTIFICATIONS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def add_notification(manhua_id: int, title: str, chapter: int) -> dict:
+    notifs = load_notifications()
+    item = {
+        "id": int(time.time() * 1000),
+        "manhuaId": manhua_id,
+        "title": title,
+        "chapter": chapter,
+        "message": f"Novo episódio {chapter} de {title} disponível!",
+        "createdAt": int(time.time())
+    }
+    notifs.insert(0, item)
+    save_notifications(notifs)
+    return item
+
+@app.route("/api/notifications", methods=["GET"])
+def get_notifications():
+    return jsonify(load_notifications())
+
+@app.route("/api/notifications/<int:notification_id>", methods=["DELETE"])
+def delete_notification(notification_id):
+    notifs = [n for n in load_notifications() if n["id"] != notification_id]
+    save_notifications(notifs)
+    return jsonify({"status": "ok"})
+
+@app.route("/api/notifications", methods=["DELETE"])
+def clear_all_notifications():
+    save_notifications([])
+    return jsonify({"status": "ok"})
 
 @app.route("/")
 def index():
@@ -107,6 +150,10 @@ def add_manhua():
     fav = bool(payload.get("isFavorite", False))
     group_orders = [m.get("customOrder", 0) for m in data if bool(m.get("isFavorite", False)) == fav]
     min_order = min(group_orders) if group_orders else 0
+    last_chapter = int(payload["lastChapter"]) if payload.get("lastChapter") is not None and str(payload.get("lastChapter")).strip() != "" else None
+    update_day = int(payload["updateDay"]) if payload.get("updateDay") is not None and str(payload.get("updateDay")).strip() != "" else None
+    is_hiatus = bool(payload.get("isHiatus", False))
+
     new_item = {
         "id": int(time.time() * 1000),
         "title": payload["title"].strip(),
@@ -114,8 +161,13 @@ def add_manhua():
         "currentChapter": current_chapter,
         "updatedAt": int(time.time()),
         "isFavorite": fav,
-        "customOrder": min_order - 1
+        "customOrder": min_order - 1,
+        "isHiatus": is_hiatus
     }
+    if last_chapter is not None:
+        new_item["lastChapter"] = last_chapter
+    if update_day is not None:
+        new_item["updateDay"] = update_day
     if chapter_id:
         new_item["chapterId"] = chapter_id
     if next_chapter:
@@ -260,6 +312,15 @@ def update_chapter(item_id):
                 min_order = min(same_group_orders) if same_group_orders else 0
                 m["customOrder"] = min_order - 1
 
+
+            if "lastChapter" in payload:
+                raw_lc = payload["lastChapter"]
+                m["lastChapter"] = int(raw_lc) if raw_lc is not None and str(raw_lc).strip() != "" else None
+            if "updateDay" in payload:
+                raw_ud = payload["updateDay"]
+                m["updateDay"] = int(raw_ud) if raw_ud is not None and str(raw_ud).strip() != "" else None
+            if "isHiatus" in payload:
+                m["isHiatus"] = bool(payload["isHiatus"])
 
             m["updatedAt"] = int(time.time())
             save_data(data)
