@@ -1,21 +1,31 @@
+import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../controllers/manhua_controller.dart';
 import '../models/manhua.dart';
+import '../services/download_service.dart';
 
 class ReaderScreen extends StatefulWidget {
   final Manhua manhua;
+  final DownloadService? downloadService;
 
-  const ReaderScreen({super.key, required this.manhua});
+  const ReaderScreen({
+    super.key,
+    required this.manhua,
+    this.downloadService,
+  });
 
   @override
   State<ReaderScreen> createState() => _ReaderScreenState();
 }
 
 class _ReaderScreenState extends State<ReaderScreen> {
+  late final DownloadService _downloadService;
+  late Manhua _currentManhua;
   late int _currentChapter;
   bool _isLoading = true;
+  bool _isLocalChapter = false;
   String? _errorMessage;
   List<String> _imageUrls = [];
   final ScrollController _scrollController = ScrollController();
@@ -23,6 +33,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   void initState() {
     super.initState();
+    _downloadService = widget.downloadService ?? DownloadService();
+    _currentManhua = widget.manhua;
     _currentChapter = widget.manhua.currentChapter;
     _loadPages();
   }
@@ -38,15 +50,33 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _isLoading = true;
       _errorMessage = null;
       _imageUrls = [];
+      _isLocalChapter = false;
     });
 
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }
 
+    // 1. Sempre verificar se existe o episódio localmente antes de tentar chamar o backend
+    try {
+      final hasLocal = await _downloadService.hasChapter(_currentManhua.id, _currentChapter);
+      if (hasLocal) {
+        final localPaths = await _downloadService.getChapterImagePaths(_currentManhua.id, _currentChapter);
+        if (localPaths.isNotEmpty && mounted) {
+          setState(() {
+            _imageUrls = localPaths;
+            _isLocalChapter = true;
+            _isLoading = false;
+          });
+          return; // Retorna imediatamente sem chamar o backend!
+        }
+      }
+    } catch (_) {}
+
+    // 2. Se não estiver salvo localmente, busca da API
     try {
       final controller = context.read<ManhuaController>();
-      final targetUrl = widget.manhua.targetUrlForChapter(_currentChapter);
+      final targetUrl = _currentManhua.targetUrlForChapter(_currentChapter);
       final rawImages = await controller.apiService.fetchChapterImages(targetUrl);
 
       final List<String> proxyImages = [];
@@ -79,8 +109,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _currentChapter = nextChapter;
     });
 
-    // Atualiza o progresso no backend
-    context.read<ManhuaController>().changeChapterDelta(widget.manhua.id, delta);
+    final controller = context.read<ManhuaController>();
+    controller.changeChapterDelta(_currentManhua.id, delta);
+
+    if (controller.manhuas.any((m) => m.id == _currentManhua.id)) {
+      final updated = controller.manhuas.firstWhere((m) => m.id == _currentManhua.id);
+      _currentManhua = updated;
+      _currentChapter = updated.currentChapter;
+    } else {
+      _currentManhua = _currentManhua.copyWith(currentChapter: nextChapter);
+    }
 
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -97,9 +135,30 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          '${widget.manhua.title} $_currentChapter',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        title: Row(
+          children: [
+            Flexible(
+              child: Text(
+                '${widget.manhua.title} $_currentChapter',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (_isLocalChapter) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8257E6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  '💾 Offline',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
           IconButton(
@@ -110,6 +169,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ],
       ),
       body: GestureDetector(
+        key: const Key('reader_gesture_detector'),
+        behavior: HitTestBehavior.opaque,
         // Navegação por clique e arrasto (swipe horizontal)
         onHorizontalDragEnd: (DragEndDetails details) {
           final velocity = details.primaryVelocity ?? 0;
@@ -213,6 +274,21 @@ class _ReaderScreenState extends State<ReaderScreen> {
       itemCount: _imageUrls.length,
       itemBuilder: (context, index) {
         final imgUrl = _imageUrls[index];
+        if (_isLocalChapter) {
+          return Image.file(
+            File(imgUrl),
+            fit: BoxFit.fitWidth,
+            errorBuilder: (context, error, stackTrace) => Container(
+              height: 150,
+              color: const Color(0xFF202024),
+              alignment: Alignment.center,
+              child: Text(
+                'Erro ao exibir página ${index + 1}',
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ),
+          );
+        }
         return CachedNetworkImage(
           imageUrl: imgUrl,
           fit: BoxFit.fitWidth,

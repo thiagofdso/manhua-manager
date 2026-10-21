@@ -83,7 +83,7 @@ void main() {
     expect(find.text('Próximo'), findsOneWidget);
 
     // Simula arrastar com velocidade (fling/swipe para a esquerda) -> avança para capítulo 204
-    await tester.fling(find.byType(GestureDetector).first, const Offset(-500.0, 0.0), 1000.0);
+    await tester.fling(find.byKey(const Key('reader_gesture_detector')), const Offset(-500.0, 0.0), 1000.0);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
