@@ -183,7 +183,10 @@
     <div class="container">
       <header>
         <h1>Meus Manhuas</h1>
-        <button class="btn btn-secondary" onclick="toggleForm()">+ Novo</button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary btn-sm" onclick="openStorageModal()" title="Gerenciar armazenamento offline">💾 Offline</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleForm()">+ Novo</button>
+        </div>
       </header>
 
       <!-- Formulário de Cadastro (Recolhível) -->
@@ -217,6 +220,9 @@
         <!-- Botões de Leitura -->
         <button class="btn w-full" style="padding: 14px; font-size: 1.05rem; margin-bottom: 8px;" onclick="openReader(selectedManhua.id)">
           📖 Ler no Leitor Nativo
+        </button>
+        <button class="btn btn-secondary w-full btn-sm" style="margin-bottom: 8px;" onclick="openDownloadModal(selectedManhua.id)">
+          📥 Baixar Capítulos Localmente
         </button>
         <a id="btnExternalRead" class="btn btn-secondary w-full btn-sm" style="margin-bottom: 16px;" target="_blank">
           ↗ Abrir no Site Original
@@ -301,6 +307,64 @@
         <button class="btn btn-secondary w-full" onclick="closeEditModal()">Cancelar</button>
         <button class="btn w-full" onclick="saveEditManhua()">Salvar Alterações</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE DOWNLOADS OFFLINE -->
+  <div id="downloadModal" class="modal-backdrop">
+    <div class="modal-box" style="max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h2 id="downloadModalTitle">Downloads Offline</h2>
+        <button class="action-btn" onclick="closeDownloadModal()">✕</button>
+      </div>
+
+      <div class="card" style="margin-bottom: 16px; background: #18181b;">
+        <h4 style="margin-bottom: 8px; font-size: 0.95rem;">Baixar Intervalo de Capítulos</h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+          <div>
+            <label style="font-size: 0.8rem;">Do Capítulo:</label>
+            <input type="number" id="downloadStartChapter" min="1" style="margin-bottom: 0;" />
+          </div>
+          <div>
+            <label style="font-size: 0.8rem;">Até o Capítulo:</label>
+            <input type="number" id="downloadEndChapter" min="1" style="margin-bottom: 0;" />
+          </div>
+        </div>
+        <button id="btnStartBatchDownload" class="btn w-full" onclick="startBatchDownload()">Iniciar Download</button>
+
+        <div id="downloadProgressContainer" style="display: none; margin-top: 14px;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px;">
+            <span id="downloadProgressText">Baixando...</span>
+            <span id="downloadProgressPercent">0%</span>
+          </div>
+          <div style="width: 100%; height: 8px; background: #27272a; border-radius: 4px; overflow: hidden;">
+            <div id="downloadProgressBar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.2s;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <h4 style="font-size: 0.95rem;">Capítulos Salvos Localmente</h4>
+        <button id="btnDeleteAllManhua" class="btn btn-secondary btn-sm" style="color: var(--danger); font-size: 0.75rem;" onclick="deleteAllForCurrentManhua()">Excluir Todos</button>
+      </div>
+      <div id="downloadedChaptersList" style="max-height: 200px; overflow-y: auto; background: #121214; border-radius: 8px; padding: 8px; border: 1px solid var(--card-border);"></div>
+    </div>
+  </div>
+
+  <!-- MODAL DE GERENCIAMENTO GLOBAL DE ARMAZENAMENTO -->
+  <div id="storageModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>Armazenamento Offline</h2>
+        <button class="action-btn" onclick="closeStorageModal()">✕</button>
+      </div>
+      <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 16px;">
+        Os capítulos baixados ficam salvos diretamente no seu navegador (IndexedDB) para leitura offline. Nenhuma limpeza automática é executada.
+      </p>
+      <div id="storageSummary" style="margin-bottom: 16px; font-size: 0.95rem;"></div>
+      <button class="btn btn-secondary w-full" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.4);" onclick="confirmClearAllOfflineStorage()">
+        🗑️ Limpar Todos os Downloads Locais
+      </button>
     </div>
   </div>
 
@@ -445,6 +509,7 @@
               <span class="badge">Capítulo ${m.currentChapter} • Ler agora 📖</span>
             </div>
             <div class="item-actions">
+              <button class="action-btn" title="Downloads Offline" onclick="openDownloadModal(${m.id}, event)">📥</button>
               <button class="action-btn" title="Mover posição" onclick="startMoveItem(${m.id}, event)">↕</button>
               <button class="action-btn" title="Visualizar e Gerenciar" onclick="selectManhua(${m.id}, event)">👁️</button>
               <button class="action-btn" title="Editar Obra" onclick="openEditModal(${m.id}, event)">✏️</button>
@@ -647,11 +712,36 @@
       const errorEl = document.getElementById('readerError');
       const footer = document.getElementById('readerFooter');
 
+      activeObjectUrls.forEach(url => URL.revokeObjectURL(url));
+      activeObjectUrls = [];
+
       container.innerHTML = '';
       loading.style.display = 'block';
       errorEl.style.display = 'none';
       footer.style.display = 'none';
 
+      // 1. Sempre verificar se existe o episódio localmente antes de tentar chamar o backend
+      try {
+        const hasLocal = await hasDownloadedChapter(readerManhua.id, readerManhua.currentChapter);
+        if (hasLocal) {
+          const blobs = await getDownloadedChapterPages(readerManhua.id, readerManhua.currentChapter);
+          if (blobs && blobs.length > 0) {
+            loading.style.display = 'none';
+            document.getElementById('readerSubtitle').innerHTML = `Capítulo ${readerManhua.currentChapter} <span class="badge-offline" style="background:#8257e6;color:#fff;font-size:0.75rem;padding:2px 8px;border-radius:4px;margin-left:6px;font-weight:600;">💾 Offline (Salvo localmente)</span>`;
+            container.innerHTML = blobs.map((blob, idx) => {
+              const url = URL.createObjectURL(blob);
+              activeObjectUrls.push(url);
+              return `<img src="${url}" class="chapter-page-img" alt="Página ${idx + 1}" />`;
+            }).join('');
+            footer.style.display = 'block';
+            return; // Retorna imediatamente sem chamada de rede!
+          }
+        }
+      } catch (localErr) {
+        console.warn('Erro ao verificar armazenamento local:', localErr);
+      }
+
+      // 2. Se não estiver salvo localmente, segue o fluxo normal via API
       const targetUrl = resolveTargetUrl(readerManhua);
 
       try {
@@ -773,6 +863,352 @@
       loadData();
     }
 
+    /* ========================================================
+       ARMAZENAMENTO LOCAL (INDEXEDDB) E DOWNLOADS OFFLINE
+       ======================================================== */
+    const DB_NAME = 'ManhuaOfflineDB';
+    const DB_VERSION = 1;
+    let activeObjectUrls = [];
+
+    function openOfflineDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains('chapters')) {
+            db.createObjectStore('chapters', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('pages')) {
+            db.createObjectStore('pages');
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function hasDownloadedChapter(manhuaId, chapter) {
+      try {
+        const db = await openOfflineDB();
+        return new Promise((resolve) => {
+          const tx = db.transaction('chapters', 'readonly');
+          const store = tx.objectStore('chapters');
+          const req = store.get(`${manhuaId}_${chapter}`);
+          req.onsuccess = () => resolve(!!req.result);
+          req.onerror = () => resolve(false);
+        });
+      } catch (err) {
+        return false;
+      }
+    }
+
+    async function getDownloadedChapterPages(manhuaId, chapter) {
+      const db = await openOfflineDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(['chapters', 'pages'], 'readonly');
+        const chapStore = tx.objectStore('chapters');
+        const pageStore = tx.objectStore('pages');
+
+        const chapReq = chapStore.get(`${manhuaId}_${chapter}`);
+        chapReq.onsuccess = () => {
+          const chap = chapReq.result;
+          if (!chap) return resolve(null);
+          const pageBlobs = [];
+          const count = chap.pageCount || 0;
+          if (count === 0) return resolve([]);
+          let loaded = 0;
+          for (let i = 0; i < count; i++) {
+            const pageReq = pageStore.get(`${manhuaId}_${chapter}_${i}`);
+            pageReq.onsuccess = () => {
+              pageBlobs[i] = pageReq.result;
+              loaded++;
+              if (loaded === count) resolve(pageBlobs);
+            };
+            pageReq.onerror = () => reject(pageReq.error);
+          }
+        };
+        chapReq.onerror = () => reject(chapReq.error);
+      });
+    }
+
+    async function saveDownloadedChapter(manhuaId, chapter, title, blobs) {
+      const db = await openOfflineDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(['chapters', 'pages'], 'readwrite');
+        const chapStore = tx.objectStore('chapters');
+        const pageStore = tx.objectStore('pages');
+
+        chapStore.put({
+          id: `${manhuaId}_${chapter}`,
+          manhuaId: manhuaId,
+          chapter: chapter,
+          title: title,
+          pageCount: blobs.length,
+          downloadedAt: Date.now()
+        });
+
+        blobs.forEach((blob, idx) => {
+          pageStore.put(blob, `${manhuaId}_${chapter}_${idx}`);
+        });
+
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function deleteDownloadedChapter(manhuaId, chapter) {
+      const db = await openOfflineDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(['chapters', 'pages'], 'readwrite');
+        const chapStore = tx.objectStore('chapters');
+        const pageStore = tx.objectStore('pages');
+
+        const chapReq = chapStore.get(`${manhuaId}_${chapter}`);
+        chapReq.onsuccess = () => {
+          const chap = chapReq.result;
+          const count = chap ? (chap.pageCount || 100) : 100;
+          chapStore.delete(`${manhuaId}_${chapter}`);
+          for (let i = 0; i < count; i++) {
+            pageStore.delete(`${manhuaId}_${chapter}_${i}`);
+          }
+        };
+
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function getDownloadedChapters(manhuaId) {
+      const db = await openOfflineDB();
+      return new Promise((resolve) => {
+        const tx = db.transaction('chapters', 'readonly');
+        const store = tx.objectStore('chapters');
+        const req = store.openCursor();
+        const list = [];
+        req.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            if (cursor.value.manhuaId === manhuaId) {
+              list.push(cursor.value);
+            }
+            cursor.continue();
+          } else {
+            list.sort((a, b) => a.chapter - b.chapter);
+            resolve(list);
+          }
+        };
+        req.onerror = () => resolve([]);
+      });
+    }
+
+    async function getAllDownloadedChapters() {
+      const db = await openOfflineDB();
+      return new Promise((resolve) => {
+        const tx = db.transaction('chapters', 'readonly');
+        const store = tx.objectStore('chapters');
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      });
+    }
+
+    async function deleteAllDownloadedForManhua(manhuaId) {
+      const chaps = await getDownloadedChapters(manhuaId);
+      for (const c of chaps) {
+        await deleteDownloadedChapter(manhuaId, c.chapter);
+      }
+    }
+
+    async function clearAllOfflineDB() {
+      const db = await openOfflineDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(['chapters', 'pages'], 'readwrite');
+        tx.objectStore('chapters').clear();
+        tx.objectStore('pages').clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    /* Modal de Downloads da Obra */
+    let activeDownloadManhuaId = null;
+    let isDownloading = false;
+
+    async function openDownloadModal(id, event) {
+      if (event) event.stopPropagation();
+      activeDownloadManhuaId = id;
+      const m = manhuas.find(x => x.id === id);
+      if (!m) return;
+
+      document.getElementById('downloadModalTitle').innerText = `Downloads: ${m.title}`;
+      document.getElementById('downloadStartChapter').value = m.currentChapter || 1;
+      document.getElementById('downloadEndChapter').value = (m.currentChapter || 1) + 4;
+      document.getElementById('downloadProgressContainer').style.display = 'none';
+      document.getElementById('btnStartBatchDownload').disabled = false;
+
+      await renderDownloadedList(id);
+      document.getElementById('downloadModal').classList.add('active');
+    }
+
+    function closeDownloadModal() {
+      if (isDownloading) {
+        if (!confirm('Um download está em andamento. Deseja fechar o modal? O download continuará em segundo plano.')) {
+          return;
+        }
+      }
+      document.getElementById('downloadModal').classList.remove('active');
+      activeDownloadManhuaId = null;
+    }
+
+    async function renderDownloadedList(manhuaId) {
+      const listEl = document.getElementById('downloadedChaptersList');
+      const chapters = await getDownloadedChapters(manhuaId);
+      if (!chapters.length) {
+        listEl.innerHTML = '<div style="color: var(--muted); font-size: 0.85rem; text-align: center; padding: 12px;">Nenhum capítulo baixado para esta obra.</div>';
+        return;
+      }
+      listEl.innerHTML = chapters.map(c => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 4px; border-bottom: 1px solid #27272a;">
+          <span style="font-size: 0.9rem; font-weight: 500;">
+            Capítulo ${c.chapter} <small style="color: var(--muted); font-size: 0.75rem;">(${c.pageCount} págs)</small>
+          </span>
+          <button class="action-btn danger" style="padding: 2px 6px; font-size: 0.8rem;" title="Excluir capítulo baixado" onclick="deleteChapterFromModal(${c.manhuaId}, ${c.chapter})">🗑️</button>
+        </div>
+      `).join('');
+    }
+
+    async function deleteChapterFromModal(manhuaId, chapter) {
+      await deleteDownloadedChapter(manhuaId, chapter);
+      await renderDownloadedList(manhuaId);
+    }
+
+    async function deleteAllForCurrentManhua() {
+      if (!activeDownloadManhuaId) return;
+      if (!confirm('Deseja excluir todos os capítulos baixados desta obra?')) return;
+      await deleteAllDownloadedForManhua(activeDownloadManhuaId);
+      await renderDownloadedList(activeDownloadManhuaId);
+    }
+
+    async function startBatchDownload() {
+      if (!activeDownloadManhuaId || isDownloading) return;
+      const m = manhuas.find(x => x.id === activeDownloadManhuaId);
+      if (!m) return;
+
+      const start = parseInt(document.getElementById('downloadStartChapter').value, 10);
+      const end = parseInt(document.getElementById('downloadEndChapter').value, 10);
+
+      if (isNaN(start) || isNaN(end) || start < 1 || end < start) {
+        alert('Por favor, informe um intervalo válido (Capítulo inicial >= 1 e <= Capítulo final).');
+        return;
+      }
+
+      if ((end - start + 1) > 50) {
+        alert('O limite máximo por lote é de 50 capítulos.');
+        return;
+      }
+
+      isDownloading = true;
+      const progressContainer = document.getElementById('downloadProgressContainer');
+      const progressText = document.getElementById('downloadProgressText');
+      const progressPercent = document.getElementById('downloadProgressPercent');
+      const progressBar = document.getElementById('downloadProgressBar');
+      const btnStart = document.getElementById('btnStartBatchDownload');
+
+      progressContainer.style.display = 'block';
+      btnStart.disabled = true;
+      progressText.innerText = 'Consultando capítulos no servidor...';
+      progressBar.style.width = '5%';
+      progressPercent.innerText = '5%';
+
+      try {
+        const res = await fetch(`/api/manhuas/${activeDownloadManhuaId}/batch-chapter-images?start=${start}&end=${end}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Erro HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        const chapters = data.chapters || [];
+
+        let totalImages = 0;
+        chapters.forEach(c => totalImages += (c.images ? c.images.length : 0));
+        let downloadedImages = 0;
+
+        for (let i = 0; i < chapters.length; i++) {
+          const chap = chapters[i];
+          const chapNum = chap.chapter;
+          const images = chap.images || [];
+
+          if (images.length === 0) {
+            continue;
+          }
+
+          const blobs = [];
+          for (let p = 0; p < images.length; p++) {
+            const imgUrl = images[p];
+            progressText.innerText = `Capítulo ${chapNum} (página ${p + 1} de ${images.length})...`;
+            
+            try {
+              const imgRes = await fetch(`/api/proxy-image?url=${encodeURIComponent(imgUrl)}`);
+              if (imgRes.ok) {
+                const blob = await imgRes.blob();
+                blobs.push(blob);
+              }
+            } catch (imgErr) {
+              console.warn(`Falha ao baixar imagem ${imgUrl}:`, imgErr);
+            }
+
+            downloadedImages++;
+            const pct = Math.min(100, Math.round((downloadedImages / Math.max(1, totalImages)) * 100));
+            progressBar.style.width = `${pct}%`;
+            progressPercent.innerText = `${pct}%`;
+          }
+
+          if (blobs.length > 0) {
+            await saveDownloadedChapter(activeDownloadManhuaId, chapNum, m.title, blobs);
+            await renderDownloadedList(activeDownloadManhuaId);
+          }
+        }
+
+        progressText.innerText = 'Download concluído com sucesso!';
+        progressBar.style.width = '100%';
+        progressPercent.innerText = '100%';
+      } catch (err) {
+        progressText.innerText = `Erro: ${err.message}`;
+        alert(`Erro ao realizar download: ${err.message}`);
+      } finally {
+        isDownloading = false;
+        btnStart.disabled = false;
+        await renderDownloadedList(activeDownloadManhuaId);
+      }
+    }
+
+    async function openStorageModal() {
+      const all = await getAllDownloadedChapters();
+      const summaryEl = document.getElementById('storageSummary');
+      if (!all.length) {
+        summaryEl.innerHTML = '<p style="color: var(--muted);">Nenhum capítulo baixado no navegador.</p>';
+      } else {
+        const totalPages = all.reduce((acc, c) => acc + (c.pageCount || 0), 0);
+        summaryEl.innerHTML = `
+          <p><strong>${all.length}</strong> capítulos salvos localmente (${totalPages} páginas).</p>
+        `;
+      }
+      document.getElementById('storageModal').classList.add('active');
+    }
+
+    function closeStorageModal() {
+      document.getElementById('storageModal').classList.remove('active');
+    }
+
+    async function confirmClearAllOfflineStorage() {
+      if (!confirm('Deseja realmente limpar TODOS os capítulos salvos offline do navegador? Essa ação não pode ser desfeita.')) {
+        return;
+      }
+      await clearAllOfflineDB();
+      alert('Todos os downloads offline foram removidos com sucesso.');
+      closeStorageModal();
+    }
+
     // Teclas de navegação e cancelamento
     window.addEventListener('keydown', (e) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
@@ -786,9 +1222,19 @@
           closeEditModal();
           return;
         }
+        if (document.getElementById('downloadModal').classList.contains('active')) {
+          closeDownloadModal();
+          return;
+        }
+        if (document.getElementById('storageModal').classList.contains('active')) {
+          closeStorageModal();
+          return;
+        }
       }
 
-      if (document.getElementById('editModal').classList.contains('active')) return;
+      if (document.getElementById('editModal').classList.contains('active') ||
+          document.getElementById('downloadModal').classList.contains('active') ||
+          document.getElementById('storageModal').classList.contains('active')) return;
 
       if (e.key === 'ArrowRight') {
         if (document.getElementById('readerView').classList.contains('active')) {
