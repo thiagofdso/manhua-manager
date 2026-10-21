@@ -183,7 +183,10 @@
     <div class="container">
       <header>
         <h1>Meus Manhuas</h1>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button id="btnActiveDownloadsHeader" class="btn btn-secondary btn-sm" style="display: none; background: #8257e6; color: #fff; font-weight: 600;" onclick="openActiveDownloadsModal()">
+            📥 Baixando (<span id="activeDownloadsCount">0</span>)
+          </button>
           <button class="btn btn-secondary btn-sm" onclick="openStorageModal()" title="Gerenciar armazenamento offline">💾 Offline</button>
           <button class="btn btn-secondary btn-sm" onclick="toggleForm()">+ Novo</button>
         </div>
@@ -330,7 +333,10 @@
             <input type="number" id="downloadEndChapter" min="1" style="margin-bottom: 0;" />
           </div>
         </div>
-        <button id="btnStartBatchDownload" class="btn w-full" onclick="startBatchDownload()">Iniciar Download</button>
+        <div style="display: flex; gap: 8px;">
+          <button id="btnStartBatchDownload" class="btn w-full" onclick="startBatchDownload()">Iniciar Download</button>
+          <button id="btnCancelBatchDownload" class="btn btn-secondary w-full" style="display: none; color: var(--danger); border-color: rgba(239, 68, 68, 0.4);" onclick="cancelCurrentManhuaDownload()">Cancelar Download</button>
+        </div>
 
         <div id="downloadProgressContainer" style="display: none; margin-top: 14px;">
           <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px;">
@@ -365,6 +371,17 @@
       <button class="btn btn-secondary w-full" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.4);" onclick="confirmClearAllOfflineStorage()">
         🗑️ Limpar Todos os Downloads Locais
       </button>
+    </div>
+  </div>
+
+  <!-- MODAL DE DOWNLOADS EM ANDAMENTO -->
+  <div id="activeDownloadsModal" class="modal-backdrop">
+    <div class="modal-box" style="max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h2>Downloads em Andamento</h2>
+        <button class="action-btn" onclick="closeActiveDownloadsModal()">✕</button>
+      </div>
+      <div id="activeDownloadsContainer"></div>
     </div>
   </div>
 
@@ -1030,9 +1047,63 @@
       });
     }
 
-    /* Modal de Downloads da Obra */
+    /* Modal de Downloads da Obra e Fila Global */
+    const activeDownloads = {};
     let activeDownloadManhuaId = null;
-    let isDownloading = false;
+
+    function updateActiveDownloadsHeaderBadge() {
+      const activeList = Object.values(activeDownloads).filter(t => !t.isCancelled && t.status === 'downloading');
+      const count = activeList.length;
+      const btnHeader = document.getElementById('btnActiveDownloadsHeader');
+      const countSpan = document.getElementById('activeDownloadsCount');
+      if (countSpan) countSpan.innerText = count;
+
+      if (btnHeader) {
+        btnHeader.style.display = count > 0 ? 'inline-flex' : 'none';
+      }
+
+      if (activeDownloadManhuaId) {
+        syncDownloadModalUI(activeDownloadManhuaId);
+      }
+
+      if (document.getElementById('activeDownloadsModal').classList.contains('active')) {
+        renderActiveDownloadsList();
+      }
+    }
+
+    function syncDownloadModalUI(manhuaId) {
+      const task = activeDownloads[manhuaId];
+      const progressContainer = document.getElementById('downloadProgressContainer');
+      const progressText = document.getElementById('downloadProgressText');
+      const progressPercent = document.getElementById('downloadProgressPercent');
+      const progressBar = document.getElementById('downloadProgressBar');
+      const btnStart = document.getElementById('btnStartBatchDownload');
+      const btnCancel = document.getElementById('btnCancelBatchDownload');
+      const startInput = document.getElementById('downloadStartChapter');
+      const endInput = document.getElementById('downloadEndChapter');
+
+      if (task && !task.isCancelled && task.status === 'downloading') {
+        progressContainer.style.display = 'block';
+        progressText.innerText = task.progressText;
+        progressPercent.innerText = `${task.progressPercent}%`;
+        progressBar.style.width = `${task.progressPercent}%`;
+        progressBar.style.background = 'var(--primary)';
+
+        startInput.disabled = true;
+        endInput.disabled = true;
+        btnStart.style.display = 'none';
+        btnCancel.style.display = 'block';
+      } else {
+        startInput.disabled = false;
+        endInput.disabled = false;
+        btnStart.style.display = 'block';
+        btnStart.disabled = false;
+        btnCancel.style.display = 'none';
+        if (!task) {
+          progressContainer.style.display = 'none';
+        }
+      }
+    }
 
     async function openDownloadModal(id, event) {
       if (event) event.stopPropagation();
@@ -1041,23 +1112,87 @@
       if (!m) return;
 
       document.getElementById('downloadModalTitle').innerText = `Downloads: ${m.title}`;
-      document.getElementById('downloadStartChapter').value = m.currentChapter || 1;
-      document.getElementById('downloadEndChapter').value = (m.currentChapter || 1) + 4;
-      document.getElementById('downloadProgressContainer').style.display = 'none';
-      document.getElementById('btnStartBatchDownload').disabled = false;
+      const task = activeDownloads[id];
+      if (task) {
+        document.getElementById('downloadStartChapter').value = task.start;
+        document.getElementById('downloadEndChapter').value = task.end;
+      } else {
+        document.getElementById('downloadStartChapter').value = m.currentChapter || 1;
+        document.getElementById('downloadEndChapter').value = (m.currentChapter || 1) + 4;
+      }
 
+      syncDownloadModalUI(id);
       await renderDownloadedList(id);
       document.getElementById('downloadModal').classList.add('active');
     }
 
     function closeDownloadModal() {
-      if (isDownloading) {
-        if (!confirm('Um download está em andamento. Deseja fechar o modal? O download continuará em segundo plano.')) {
-          return;
-        }
-      }
       document.getElementById('downloadModal').classList.remove('active');
       activeDownloadManhuaId = null;
+    }
+
+    function openActiveDownloadsModal() {
+      renderActiveDownloadsList();
+      document.getElementById('activeDownloadsModal').classList.add('active');
+    }
+
+    function closeActiveDownloadsModal() {
+      document.getElementById('activeDownloadsModal').classList.remove('active');
+    }
+
+    function renderActiveDownloadsList() {
+      const container = document.getElementById('activeDownloadsContainer');
+      const activeList = Object.values(activeDownloads).filter(t => !t.isCancelled && t.status === 'downloading');
+
+      if (!activeList.length) {
+        container.innerHTML = '<div style="color: var(--muted); font-size: 0.9rem; text-align: center; padding: 24px;">Nenhum download em andamento no momento.</div>';
+        return;
+      }
+
+      container.innerHTML = activeList.map(task => `
+        <div class="card" style="margin-bottom: 12px; background: #18181b; padding: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+            <div>
+              <strong style="font-size: 1rem; color: #fff;">${escapeHtml(task.title)}</strong>
+              <div style="font-size: 0.8rem; color: var(--muted); margin-top: 2px;">
+                Capítulos ${task.start} até ${task.end}
+              </div>
+            </div>
+            <button class="btn btn-secondary btn-sm" style="color: var(--danger); border-color: rgba(239,68,68,0.4);" onclick="cancelActiveDownload(${task.manhuaId})">
+              ✕ Cancelar
+            </button>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px; color: var(--text);">
+            <span>${escapeHtml(task.progressText)}</span>
+            <span>${task.progressPercent}%</span>
+          </div>
+          <div style="width: 100%; height: 6px; background: #27272a; border-radius: 3px; overflow: hidden;">
+            <div style="width: ${task.progressPercent}%; height: 100%; background: var(--primary); transition: width 0.2s;"></div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function cancelCurrentManhuaDownload() {
+      if (!activeDownloadManhuaId) return;
+      cancelActiveDownload(activeDownloadManhuaId);
+    }
+
+    function cancelActiveDownload(manhuaId) {
+      const task = activeDownloads[manhuaId];
+      if (!task) return;
+      task.isCancelled = true;
+      task.status = 'cancelled';
+      try {
+        task.abortController.abort();
+      } catch (_) {}
+      delete activeDownloads[manhuaId];
+      updateActiveDownloadsHeaderBadge();
+      if (activeDownloadManhuaId === manhuaId) {
+        document.getElementById('downloadProgressText').innerText = 'Download cancelado pelo usuário.';
+        document.getElementById('downloadProgressBar').style.background = 'var(--danger)';
+        syncDownloadModalUI(manhuaId);
+      }
     }
 
     async function renderDownloadedList(manhuaId) {
@@ -1090,7 +1225,11 @@
     }
 
     async function startBatchDownload() {
-      if (!activeDownloadManhuaId || isDownloading) return;
+      if (!activeDownloadManhuaId) return;
+      if (activeDownloads[activeDownloadManhuaId]) {
+        alert('Já existe um download em andamento para esta obra.');
+        return;
+      }
       const m = manhuas.find(x => x.id === activeDownloadManhuaId);
       if (!m) return;
 
@@ -1107,78 +1246,96 @@
         return;
       }
 
-      isDownloading = true;
-      const progressContainer = document.getElementById('downloadProgressContainer');
-      const progressText = document.getElementById('downloadProgressText');
-      const progressPercent = document.getElementById('downloadProgressPercent');
-      const progressBar = document.getElementById('downloadProgressBar');
-      const btnStart = document.getElementById('btnStartBatchDownload');
+      const abortController = new AbortController();
+      const task = {
+        manhuaId: activeDownloadManhuaId,
+        title: m.title,
+        start,
+        end,
+        totalImages: 0,
+        downloadedImages: 0,
+        progressPercent: 5,
+        progressText: 'Consultando capítulos no servidor...',
+        status: 'downloading',
+        isCancelled: false,
+        abortController
+      };
 
-      progressContainer.style.display = 'block';
-      btnStart.disabled = true;
-      progressText.innerText = 'Consultando capítulos no servidor...';
-      progressBar.style.width = '5%';
-      progressPercent.innerText = '5%';
+      activeDownloads[activeDownloadManhuaId] = task;
+      updateActiveDownloadsHeaderBadge();
 
       try {
-        const res = await fetch(`/api/manhuas/${activeDownloadManhuaId}/batch-chapter-images?start=${start}&end=${end}`);
+        const res = await fetch(`/api/manhuas/${activeDownloadManhuaId}/batch-chapter-images?start=${start}&end=${end}`, {
+          signal: abortController.signal
+        });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.error || `Erro HTTP ${res.status}`);
         }
+        if (task.isCancelled) return;
+
         const data = await res.json();
         const chapters = data.chapters || [];
 
         let totalImages = 0;
         chapters.forEach(c => totalImages += (c.images ? c.images.length : 0));
-        let downloadedImages = 0;
+        task.totalImages = totalImages;
 
         for (let i = 0; i < chapters.length; i++) {
+          if (task.isCancelled) return;
           const chap = chapters[i];
           const chapNum = chap.chapter;
           const images = chap.images || [];
 
-          if (images.length === 0) {
-            continue;
-          }
+          if (images.length === 0) continue;
 
           const blobs = [];
           for (let p = 0; p < images.length; p++) {
+            if (task.isCancelled) return;
             const imgUrl = images[p];
-            progressText.innerText = `Capítulo ${chapNum} (página ${p + 1} de ${images.length})...`;
-            
+            task.progressText = `Capítulo ${chapNum} (página ${p + 1} de ${images.length})...`;
+
             try {
-              const imgRes = await fetch(`/api/proxy-image?url=${encodeURIComponent(imgUrl)}`);
+              const imgRes = await fetch(`/api/proxy-image?url=${encodeURIComponent(imgUrl)}`, {
+                signal: abortController.signal
+              });
               if (imgRes.ok) {
                 const blob = await imgRes.blob();
                 blobs.push(blob);
               }
             } catch (imgErr) {
+              if (task.isCancelled) return;
               console.warn(`Falha ao baixar imagem ${imgUrl}:`, imgErr);
             }
 
-            downloadedImages++;
-            const pct = Math.min(100, Math.round((downloadedImages / Math.max(1, totalImages)) * 100));
-            progressBar.style.width = `${pct}%`;
-            progressPercent.innerText = `${pct}%`;
+            task.downloadedImages++;
+            task.progressPercent = Math.min(100, Math.round((task.downloadedImages / Math.max(1, totalImages)) * 100));
+            updateActiveDownloadsHeaderBadge();
           }
 
-          if (blobs.length > 0) {
+          if (blobs.length > 0 && !task.isCancelled) {
             await saveDownloadedChapter(activeDownloadManhuaId, chapNum, m.title, blobs);
-            await renderDownloadedList(activeDownloadManhuaId);
+            if (activeDownloadManhuaId === task.manhuaId) {
+              await renderDownloadedList(activeDownloadManhuaId);
+            }
           }
         }
 
-        progressText.innerText = 'Download concluído com sucesso!';
-        progressBar.style.width = '100%';
-        progressPercent.innerText = '100%';
+        task.progressText = 'Download concluído com sucesso!';
+        task.progressPercent = 100;
+        task.status = 'completed';
       } catch (err) {
-        progressText.innerText = `Erro: ${err.message}`;
-        alert(`Erro ao realizar download: ${err.message}`);
+        if (!task.isCancelled) {
+          task.progressText = `Erro: ${err.message}`;
+          task.status = 'error';
+          alert(`Erro ao realizar download: ${err.message}`);
+        }
       } finally {
-        isDownloading = false;
-        btnStart.disabled = false;
-        await renderDownloadedList(activeDownloadManhuaId);
+        delete activeDownloads[task.manhuaId];
+        updateActiveDownloadsHeaderBadge();
+        if (activeDownloadManhuaId === task.manhuaId) {
+          await renderDownloadedList(activeDownloadManhuaId);
+        }
       }
     }
 
@@ -1230,11 +1387,16 @@
           closeStorageModal();
           return;
         }
+        if (document.getElementById('activeDownloadsModal').classList.contains('active')) {
+          closeActiveDownloadsModal();
+          return;
+        }
       }
 
       if (document.getElementById('editModal').classList.contains('active') ||
           document.getElementById('downloadModal').classList.contains('active') ||
-          document.getElementById('storageModal').classList.contains('active')) return;
+          document.getElementById('storageModal').classList.contains('active') ||
+          document.getElementById('activeDownloadsModal').classList.contains('active')) return;
 
       if (e.key === 'ArrowRight') {
         if (document.getElementById('readerView').classList.contains('active')) {

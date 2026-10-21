@@ -709,6 +709,16 @@ def test_web_index_contains_offline_download_elements(client):
     assert "getDownloadedChapterPages" in html
 
 
+def test_web_index_contains_active_downloads_queue_elements(client):
+    res = client.get("/")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    assert "activeDownloadsModal" in html
+    assert "btnActiveDownloadsHeader" in html
+    assert "cancelActiveDownload" in html
+    assert "renderActiveDownloadsList" in html
+
+
 def test_batch_chapter_images_validation(client):
     items = [
         {"id": 1, "title": "Overgeared", "urlTemplate": "https://example.com/comics/overgeared/chapter/{chapter}", "currentChapter": 10}
