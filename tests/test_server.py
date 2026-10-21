@@ -695,6 +695,56 @@ def test_web_index_contains_reorder_and_favorite_elements(client):
     assert "move-slot" in html
 
 
+def test_batch_chapter_images_validation(client):
+    items = [
+        {"id": 1, "title": "Overgeared", "urlTemplate": "https://example.com/comics/overgeared/chapter/{chapter}", "currentChapter": 10}
+    ]
+    with open(server.DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(items, f)
+
+    # Obra inexistente
+    res = client.get('/api/manhuas/999999999/batch-chapter-images?start=1&end=5')
+    assert res.status_code == 404
+    assert 'não encontrada' in res.get_json()['error']
+
+    # Faltando start ou end
+    res = client.get('/api/manhuas/1/batch-chapter-images?start=1')
+    assert res.status_code == 400
+
+    # start > end
+    res = client.get('/api/manhuas/1/batch-chapter-images?start=10&end=5')
+    assert res.status_code == 400
+
+    # start < 1
+    res = client.get('/api/manhuas/1/batch-chapter-images?start=0&end=5')
+    assert res.status_code == 400
+
+    # Lote superior a 50 capítulos
+    res = client.get('/api/manhuas/1/batch-chapter-images?start=1&end=60')
+    assert res.status_code == 400
+    assert 'Limite máximo' in res.get_json()['error']
+
+
+def test_batch_chapter_images_success(client, monkeypatch):
+    items = [
+        {"id": 1, "title": "Overgeared", "urlTemplate": "https://example.com/comics/overgeared/chapter/{chapter}", "currentChapter": 10}
+    ]
+    with open(server.DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(items, f)
+
+    monkeypatch.setattr(server, 'extract_images_from_url', lambda url: ['https://example.com/p1.jpg', 'https://example.com/p2.jpg'])
+
+    res = client.get('/api/manhuas/1/batch-chapter-images?start=10&end=12')
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data['manhuaId'] == 1
+    assert data['totalChapters'] == 3
+    assert len(data['chapters']) == 3
+    assert data['chapters'][0]['chapter'] == 10
+    assert len(data['chapters'][0]['images']) == 2
+
+
+
 
 
 

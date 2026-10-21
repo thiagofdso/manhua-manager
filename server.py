@@ -4,6 +4,7 @@ import time
 import re
 import urllib.request
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
 import mangafire_provider
@@ -704,6 +705,78 @@ def get_chapter_images():
         return jsonify(res_payload)
     except Exception as e:
         return jsonify({"error": str(e), "images": []}), 500
+
+def extract_images_from_url(target_url):
+    parsed = urllib.parse.urlparse(target_url)
+    domain = parsed.netloc.lower()
+    if domain.startswith("www."):
+        domain = domain[4:]
+
+    if domain == "mangafire.to":
+        data = mangafire_provider.get_mangafire_chapter_data(target_url)
+        return data.get("images", [])
+
+    if domain == "comix.to":
+        data = comix_provider.get_comix_chapter_data(target_url)
+        return data.get("images", [])
+
+    if domain == "manhuaus.com":
+        data = manhuaus_provider.get_manhuaus_chapter_data(target_url)
+        return data.get("images", [])
+
+    req = urllib.request.Request(
+        target_url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        }
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        html = resp.read().decode("utf-8", errors="ignore")
+    return extract_chapter_images_by_domain(html, target_url)
+
+@app.route("/api/manhuas/<int:item_id>/batch-chapter-images", methods=["GET"])
+def get_batch_chapter_images(item_id):
+    db_data = load_data()
+    manhua = next((m for m in db_data if m["id"] == item_id), None)
+    if not manhua:
+        return jsonify({"error": "Obra não encontrada"}), 404
+
+    try:
+        start = int(request.args.get("start", ""))
+        end = int(request.args.get("end", ""))
+    except (ValueError, TypeError):
+        return jsonify({"error": "Parâmetros 'start' e 'end' são obrigatórios e devem ser inteiros válidos"}), 400
+
+    if start < 1 or end < start:
+        return jsonify({"error": "Intervalo de capítulos inválido"}), 400
+
+    if (end - start + 1) > 50:
+        return jsonify({"error": "Limite máximo de 50 capítulos por lote excedido"}), 400
+
+    url_template = manhua.get("urlTemplate", "")
+
+    def process_chapter(chap_num):
+        chap_url = url_template.replace("{chapter}", str(chap_num))
+        try:
+            images = extract_images_from_url(chap_url)
+            return {"chapter": chap_num, "targetUrl": chap_url, "images": images}
+        except Exception as e:
+            return {"chapter": chap_num, "targetUrl": chap_url, "images": [], "error": str(e)}
+
+    chapters_to_fetch = list(range(start, end + 1))
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        results = list(executor.map(process_chapter, chapters_to_fetch))
+
+    results.sort(key=lambda x: x["chapter"])
+
+    return jsonify({
+        "manhuaId": manhua["id"],
+        "title": manhua.get("title", ""),
+        "range": {"start": start, "end": end},
+        "totalChapters": len(results),
+        "chapters": results
+    })
 
 @app.route("/api/proxy-image", methods=["GET"])
 def proxy_image():
