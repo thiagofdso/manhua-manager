@@ -695,6 +695,20 @@ def test_web_index_contains_reorder_and_favorite_elements(client):
     assert "move-slot" in html
 
 
+def test_web_index_contains_offline_download_elements(client):
+    res = client.get("/")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    assert "openDownloadModal" in html
+    assert "openStorageModal" in html
+    assert "downloadModal" in html
+    assert "storageModal" in html
+    assert "batch-chapter-images" in html
+    assert "ManhuaOfflineDB" in html
+    assert "hasDownloadedChapter" in html
+    assert "getDownloadedChapterPages" in html
+
+
 def test_batch_chapter_images_validation(client):
     items = [
         {"id": 1, "title": "Overgeared", "urlTemplate": "https://example.com/comics/overgeared/chapter/{chapter}", "currentChapter": 10}
