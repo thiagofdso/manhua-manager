@@ -4,7 +4,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../controllers/manhua_controller.dart';
 import '../models/manhua.dart';
+import '../services/download_manager.dart';
 import 'reader_screen.dart';
+import 'widgets/active_downloads_dialog.dart';
 import 'widgets/add_manhua_dialog.dart';
 import 'widgets/download_manhua_dialog.dart';
 import 'widgets/edit_manhua_dialog.dart';
@@ -117,6 +119,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ManhuaController>();
+    DownloadManager? downloadManager;
+    try {
+      downloadManager = Provider.of<DownloadManager>(context);
+    } catch (_) {
+      downloadManager = null;
+    }
+    final activeCount = downloadManager?.activeTasks.length ?? 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -143,6 +152,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ]
             : [
+                if (downloadManager != null)
+                  IconButton(
+                    icon: activeCount > 0
+                        ? Badge(
+                            label: Text('$activeCount'),
+                            backgroundColor: const Color(0xFF8257E6),
+                            child: const Icon(Icons.downloading, color: Color(0xFF8257E6)),
+                          )
+                        : const Icon(Icons.downloading_outlined),
+                    tooltip: 'Downloads em Andamento',
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => ActiveDownloadsDialog(downloadManager: downloadManager),
+                      );
+                    },
+                  ),
                 IconButton(
                   icon: const Icon(Icons.sort_rounded),
                   tooltip: 'Editar Ordem da Lista',
