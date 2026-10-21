@@ -4,6 +4,7 @@ import '../controllers/manhua_controller.dart';
 import '../models/manhua.dart';
 import 'reader_screen.dart';
 import 'widgets/add_manhua_dialog.dart';
+import 'widgets/download_manhua_dialog.dart';
 import 'widgets/edit_manhua_dialog.dart';
 import 'widgets/settings_dialog.dart';
 
@@ -365,7 +366,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert, color: Colors.grey),
                       onSelected: (val) {
-                        if (val == 'edit') {
+                        if (val == 'download') {
+                          showDialog(
+                            context: context,
+                            builder: (_) => DownloadManhuaDialog(manhua: manhua),
+                          );
+                        } else if (val == 'edit') {
                           showDialog(
                             context: context,
                             builder: (_) => EditManhuaDialog(manhua: manhua),
@@ -375,6 +381,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
                       },
                       itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'download',
+                          child: Row(
+                            children: [
+                              Icon(Icons.download_rounded, size: 18, color: Color(0xFF8257E6)),
+                              SizedBox(width: 8),
+                              Text('Downloads Offline'),
+                            ],
+                          ),
+                        ),
                         const PopupMenuItem(
                           value: 'edit',
                           child: Row(

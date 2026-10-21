@@ -141,4 +141,29 @@ class ApiService {
     final base = await _baseUrl();
     return '$base/api/proxy-image?url=${Uri.encodeComponent(imageUrl)}';
   }
+
+  Future<Map<String, dynamic>> fetchBatchChapterImages(int manhuaId, int start, int end) async {
+    final base = await _baseUrl();
+    final uri = Uri.parse('$base/api/manhuas/$manhuaId/batch-chapter-images').replace(
+      queryParameters: {
+        'start': start.toString(),
+        'end': end.toString(),
+      },
+    );
+    final res = await _client.get(uri);
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Falha ao buscar lote de capítulos: ${res.statusCode}');
+    }
+  }
+
+  Future<List<int>> downloadImageBytes(String proxyUrl) async {
+    final res = await _client.get(Uri.parse(proxyUrl));
+    if (res.statusCode == 200) {
+      return res.bodyBytes;
+    } else {
+      throw Exception('Falha ao baixar imagem: ${res.statusCode}');
+    }
+  }
 }
