@@ -4,6 +4,8 @@ import time
 import re
 import urllib.request
 import urllib.parse
+import threading
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
@@ -885,6 +887,103 @@ def proxy_image():
             return Response(content, mimetype=content_type, headers={"Cache-Control": "public, max-age=86400"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+def run_daily_update_check(check_all: bool = False, target_weekday: int = None) -> dict:
+    if target_weekday is None:
+        target_weekday = datetime.now().weekday()
+
+    db_data = load_data()
+    eligible = []
+    for m in db_data:
+        if m.get("isHiatus", False):
+            continue
+        if m.get("lastChapter") is None:
+            continue
+        if check_all or m.get("updateDay") == target_weekday:
+            eligible.append(m)
+
+    results = []
+    new_found = 0
+
+    for m in eligible:
+        try:
+            current_last = int(m["lastChapter"])
+            next_candidate = current_last + 1
+            url_template = m.get("urlTemplate", "")
+            if not url_template:
+                continue
+            target_url = url_template.replace("{chapter}", str(next_candidate))
+            images = extract_images_from_url(target_url)
+            if images and len(images) > 0:
+                m["lastChapter"] = next_candidate
+                m["updatedAt"] = int(time.time())
+                add_notification(m["id"], m.get("title", ""), next_candidate)
+                new_found += 1
+                results.append({
+                    "id": m["id"],
+                    "title": m.get("title", ""),
+                    "newChapter": next_candidate,
+                    "status": "updated"
+                })
+            else:
+                results.append({
+                    "id": m["id"],
+                    "title": m.get("title", ""),
+                    "attemptedChapter": next_candidate,
+                    "status": "no_new_chapter"
+                })
+        except Exception as e:
+            results.append({
+                "id": m["id"],
+                "title": m.get("title", ""),
+                "attemptedChapter": m.get("lastChapter", 0) + 1,
+                "status": "error",
+                "error": str(e)
+            })
+
+    if new_found > 0:
+        save_data(db_data)
+
+    return {
+        "status": "ok",
+        "checkedCount": len(eligible),
+        "newChaptersFound": new_found,
+        "results": results
+    }
+
+@app.route("/api/routine/run-check", methods=["POST"])
+def trigger_update_check():
+    payload = request.get_json(silent=True) or {}
+    check_all = bool(payload.get("checkAll", False))
+    result = run_daily_update_check(check_all=check_all)
+    return jsonify(result)
+
+_last_run_date = None
+_scheduler_started = False
+_scheduler_lock = threading.Lock()
+
+def _routine_scheduler_loop():
+    global _last_run_date
+    while True:
+        try:
+            now = datetime.now()
+            today_str = now.strftime("%Y-%m-%d")
+            if now.hour == 23 and now.minute == 50 and _last_run_date != today_str:
+                _last_run_date = today_str
+                run_daily_update_check(check_all=False, target_weekday=now.weekday())
+        except Exception:
+            pass
+        time.sleep(30)
+
+def start_routine_scheduler():
+    global _scheduler_started
+    with _scheduler_lock:
+        if not _scheduler_started:
+            _scheduler_started = True
+            t = threading.Thread(target=_routine_scheduler_loop, daemon=True)
+            t.start()
+
+start_routine_scheduler()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
