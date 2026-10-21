@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../controllers/manhua_controller.dart';
+import '../../models/download_task.dart';
 import '../../models/manhua.dart';
+import '../../services/download_manager.dart';
 import '../../services/download_service.dart';
 
 class DownloadManhuaDialog extends StatefulWidget {
   final Manhua manhua;
   final DownloadService? downloadService;
+  final DownloadManager? downloadManager;
 
   const DownloadManhuaDialog({
     super.key,
     required this.manhua,
     this.downloadService,
+    this.downloadManager,
   });
 
   @override
@@ -23,10 +27,8 @@ class _DownloadManhuaDialogState extends State<DownloadManhuaDialog> {
   late final TextEditingController _startController;
   late final TextEditingController _endController;
 
-  bool _isDownloading = false;
-  String _progressText = '';
-  double _progressValue = 0.0;
   List<int> _downloadedChapters = [];
+  int? _lastObservedChapter;
 
   @override
   void initState() {
@@ -87,7 +89,7 @@ class _DownloadManhuaDialogState extends State<DownloadManhuaDialog> {
     }
   }
 
-  Future<void> _startDownload() async {
+  void _startDownload(DownloadManager downloadManager) {
     final start = int.tryParse(_startController.text.trim());
     final end = int.tryParse(_endController.text.trim());
 
@@ -105,89 +107,32 @@ class _DownloadManhuaDialogState extends State<DownloadManhuaDialog> {
       return;
     }
 
-    setState(() {
-      _isDownloading = true;
-      _progressText = 'Consultando capítulos no servidor...';
-      _progressValue = 0.05;
-    });
-
     final controller = context.read<ManhuaController>();
-
-    try {
-      final batchData = await controller.apiService.fetchBatchChapterImages(widget.manhua.id, start, end);
-      final List<dynamic> chapters = batchData['chapters'] ?? [];
-
-      int totalImages = 0;
-      for (final c in chapters) {
-        final List<dynamic> imgs = c['images'] ?? [];
-        totalImages += imgs.length;
-      }
-
-      int downloadedImages = 0;
-
-      for (int i = 0; i < chapters.length; i++) {
-        final c = chapters[i];
-        final chapNum = c['chapter'] as int;
-        final List<dynamic> images = c['images'] ?? [];
-
-        if (images.isEmpty) continue;
-
-        for (int p = 0; p < images.length; p++) {
-          final imgUrl = images[p].toString();
-          if (mounted) {
-            setState(() {
-              _progressText = 'Capítulo $chapNum: imagem ${p + 1} de ${images.length}...';
-            });
-          }
-
-          try {
-            final proxy = await controller.apiService.getProxyImageUrl(imgUrl);
-            final bytes = await controller.apiService.downloadImageBytes(proxy);
-            await _downloadService.saveChapterImage(widget.manhua.id, chapNum, p, bytes);
-          } catch (e) {
-            debugPrint('Erro ao baixar imagem: $e');
-          }
-
-          downloadedImages++;
-          if (mounted && totalImages > 0) {
-            setState(() {
-              _progressValue = downloadedImages / totalImages;
-            });
-          }
-        }
-        await _loadDownloadedChapters();
-      }
-
-      if (mounted) {
-        setState(() {
-          _progressText = 'Download finalizado!';
-          _progressValue = 1.0;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Capítulos baixados com sucesso!')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _progressText = 'Erro ao baixar: $e';
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro durante o download: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isDownloading = false;
-        });
-        await _loadDownloadedChapters();
-      }
-    }
+    downloadManager.startDownload(
+      manhua: widget.manhua,
+      startChapter: start,
+      endChapter: end,
+      apiService: controller.apiService,
+      downloadService: _downloadService,
+    ).then((_) {
+      _loadDownloadedChapters();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final downloadManager = widget.downloadManager ?? Provider.of<DownloadManager>(context);
+    final task = downloadManager.getTask(widget.manhua.id);
+    final isDownloading = task != null && !task.isCancelled && task.status == DownloadTaskStatus.downloading;
+
+    // Se o capítulo em download mudou ou a tarefa concluiu, atualiza a lista de capítulos salvos
+    if (task != null && task.currentChapter != _lastObservedChapter) {
+      _lastObservedChapter = task.currentChapter;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadDownloadedChapters();
+      });
+    }
+
     return AlertDialog(
       title: Row(
         children: [
@@ -222,7 +167,7 @@ class _DownloadManhuaDialogState extends State<DownloadManhuaDialog> {
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
-                      enabled: !_isDownloading,
+                      enabled: !isDownloading,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -235,33 +180,66 @@ class _DownloadManhuaDialogState extends State<DownloadManhuaDialog> {
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
-                      enabled: !_isDownloading,
+                      enabled: !isDownloading,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8257E6),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(40),
+              if (isDownloading)
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(40),
+                  ),
+                  onPressed: () => downloadManager.cancelDownload(widget.manhua.id),
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Cancelar Download'),
+                )
+              else
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8257E6),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(40),
+                  ),
+                  onPressed: () => _startDownload(downloadManager),
+                  icon: const Icon(Icons.cloud_download),
+                  label: const Text('Iniciar Download'),
                 ),
-                onPressed: _isDownloading ? null : _startDownload,
-                icon: const Icon(Icons.cloud_download),
-                label: const Text('Iniciar Download'),
-              ),
-              if (_isDownloading || _progressText.isNotEmpty) ...[
+              if (task != null) ...[
                 const SizedBox(height: 12),
                 LinearProgressIndicator(
-                  value: _isDownloading ? _progressValue : null,
+                  value: isDownloading
+                      ? (task.progress > 0 ? task.progress : null)
+                      : (task.status == DownloadTaskStatus.completed ? 1.0 : task.progress),
                   backgroundColor: const Color(0xFF323238),
-                  color: const Color(0xFF8257E6),
+                  color: (task.status == DownloadTaskStatus.cancelled || task.status == DownloadTaskStatus.error)
+                      ? Colors.redAccent
+                      : const Color(0xFF8257E6),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  _progressText,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        task.statusMessage,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: (task.status == DownloadTaskStatus.cancelled || task.status == DownloadTaskStatus.error)
+                              ? Colors.redAccent
+                              : Colors.grey,
+                        ),
+                      ),
+                    ),
+                    if (isDownloading && task.progress > 0)
+                      Text(
+                        '${(task.progress * 100).toInt()}%',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                      ),
+                  ],
                 ),
               ],
               const Divider(height: 28),
@@ -275,7 +253,7 @@ class _DownloadManhuaDialogState extends State<DownloadManhuaDialog> {
                   if (_downloadedChapters.isNotEmpty)
                     TextButton(
                       style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                      onPressed: _isDownloading ? null : _deleteAll,
+                      onPressed: isDownloading ? null : _deleteAll,
                       child: const Text('Excluir Todos', style: TextStyle(fontSize: 12)),
                     ),
                 ],
@@ -311,7 +289,7 @@ class _DownloadManhuaDialogState extends State<DownloadManhuaDialog> {
                             IconButton(
                               icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
                               tooltip: 'Excluir capítulo',
-                              onPressed: _isDownloading ? null : () => _deleteChapter(chap),
+                              onPressed: isDownloading ? null : () => _deleteChapter(chap),
                             ),
                           ],
                         ),

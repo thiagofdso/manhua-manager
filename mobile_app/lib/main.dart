@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'controllers/manhua_controller.dart';
 import 'screens/home_screen.dart';
+import 'services/download_manager.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => DownloadManager()),
         ChangeNotifierProvider(create: (_) => ManhuaController()),
       ],
       child: const ManhuaApp(),
