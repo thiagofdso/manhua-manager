@@ -611,6 +611,48 @@ def test_get_manhuas_sorted_by_favorite_and_custom_order(client):
     assert ids == [4, 2, 3, 1]
 
 
+def test_patch_favorite_toggle(client):
+    items = [
+        {"id": 1, "title": "Obra A", "urlTemplate": "https://example.com/{chapter}", "currentChapter": 10, "updatedAt": 100, "isFavorite": False, "customOrder": 0},
+        {"id": 2, "title": "Obra B", "urlTemplate": "https://example.com/{chapter}", "currentChapter": 20, "updatedAt": 100, "isFavorite": True, "customOrder": 0},
+    ]
+    with open(server.DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(items, f)
+
+    # Favorita Obra A -> deve virar favorita e receber customOrder menor que Obra B (topo das favoritas)
+    res = client.patch("/api/manhuas/1", json={"isFavorite": True})
+    assert res.status_code == 200
+    data = res.get_json()["item"]
+    assert data["isFavorite"] is True
+    assert data["customOrder"] <= 0
+
+    # Desfavorita Obra B -> deve virar comum
+    res2 = client.patch("/api/manhuas/2", json={"isFavorite": False})
+    assert res2.status_code == 200
+    assert res2.get_json()["item"]["isFavorite"] is False
+
+
+def test_patch_chapter_moves_to_top_of_group(client):
+    items = [
+        {"id": 10, "title": "Fav 1", "urlTemplate": "https://example.com/{chapter}", "currentChapter": 5, "updatedAt": 100, "isFavorite": True, "customOrder": 0},
+        {"id": 11, "title": "Fav 2", "urlTemplate": "https://example.com/{chapter}", "currentChapter": 8, "updatedAt": 90, "isFavorite": True, "customOrder": 1},
+    ]
+    with open(server.DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(items, f)
+
+    # Ao avançar capítulo da Fav 2, ela deve ir para o topo das favoritas (menor customOrder)
+    res = client.patch("/api/manhuas/11", json={"delta": 1})
+    assert res.status_code == 200
+    fav2 = res.get_json()["item"]
+    assert fav2["currentChapter"] == 9
+
+    res_list = client.get("/api/manhuas")
+    manhuas = res_list.get_json()
+    assert manhuas[0]["id"] == 11
+    assert manhuas[1]["id"] == 10
+
+
+
 
 
 

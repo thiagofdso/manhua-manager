@@ -103,12 +103,17 @@ def add_manhua():
             url_template = re.sub(r'/chapter/\d+', '/chapter/{chapter}', url_template, flags=re.IGNORECASE)
 
     data = load_data()
+    fav = bool(payload.get("isFavorite", False))
+    group_orders = [m.get("customOrder", 0) for m in data if bool(m.get("isFavorite", False)) == fav]
+    min_order = min(group_orders) if group_orders else 0
     new_item = {
         "id": int(time.time() * 1000),
         "title": payload["title"].strip(),
         "urlTemplate": url_template,
         "currentChapter": current_chapter,
-        "updatedAt": int(time.time())
+        "updatedAt": int(time.time()),
+        "isFavorite": fav,
+        "customOrder": min_order - 1
     }
     if chapter_id:
         new_item["chapterId"] = chapter_id
@@ -127,6 +132,17 @@ def update_chapter(item_id):
     data = load_data()
     for m in data:
         if m["id"] == item_id:
+            if "isFavorite" in payload:
+                new_fav = bool(payload["isFavorite"])
+                m["isFavorite"] = new_fav
+                same_group_orders = [
+                    other.get("customOrder", 0)
+                    for other in data
+                    if other["id"] != m["id"] and bool(other.get("isFavorite", False)) == new_fav
+                ]
+                min_order = min(same_group_orders) if same_group_orders else 0
+                m["customOrder"] = min_order - 1
+
             if "title" in payload and str(payload["title"]).strip():
                 m["title"] = str(payload["title"]).strip()
             if "urlTemplate" in payload and str(payload["urlTemplate"]).strip():
@@ -151,6 +167,14 @@ def update_chapter(item_id):
                 m["currentChapter"] = max(1, int(payload["chapter"]))
                 if is_mf or is_comix:
                     m.pop("chapterId", None)
+                cur_fav = bool(m.get("isFavorite", False))
+                same_group_orders = [
+                    other.get("customOrder", 0)
+                    for other in data
+                    if other["id"] != m["id"] and bool(other.get("isFavorite", False)) == cur_fav
+                ]
+                min_order = min(same_group_orders) if same_group_orders else 0
+                m["customOrder"] = min_order - 1
             elif "delta" in payload:
                 delta = int(payload["delta"])
                 if is_comix:
@@ -225,6 +249,16 @@ def update_chapter(item_id):
                         m["currentChapter"] = max(1, m["currentChapter"] + delta)
                 else:
                     m["currentChapter"] = max(1, m["currentChapter"] + delta)
+
+                cur_fav = bool(m.get("isFavorite", False))
+                same_group_orders = [
+                    other.get("customOrder", 0)
+                    for other in data
+                    if other["id"] != m["id"] and bool(other.get("isFavorite", False)) == cur_fav
+                ]
+                min_order = min(same_group_orders) if same_group_orders else 0
+                m["customOrder"] = min_order - 1
+
 
             m["updatedAt"] = int(time.time())
             save_data(data)
