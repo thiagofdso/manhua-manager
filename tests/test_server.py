@@ -768,6 +768,26 @@ def test_batch_chapter_images_success(client, monkeypatch):
     assert len(data['chapters'][0]['images']) == 2
 
 
+def test_batch_chapter_images_exceeding_last_chapter_returns_400(client):
+    items = [
+        {
+            "id": 1,
+            "title": "Overgeared",
+            "urlTemplate": "https://example.com/comics/overgeared/chapter/{chapter}",
+            "currentChapter": 10,
+            "lastChapter": 245
+        }
+    ]
+    with open(server.DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(items, f)
+
+    # Requisitar intervalo que excede lastChapter (ex: 240 a 246)
+    res = client.get("/api/manhuas/1/batch-chapter-images?start=240&end=246")
+    assert res.status_code == 400
+    assert "Capítulo excede o último episódio disponível" in res.get_json()["error"]
+
+
+
 
 
 

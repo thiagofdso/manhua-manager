@@ -817,6 +817,10 @@ def get_batch_chapter_images(item_id):
     if (end - start + 1) > 50:
         return jsonify({"error": "Limite máximo de 50 capítulos por lote excedido"}), 400
 
+    last_chap = manhua.get("lastChapter")
+    if last_chap is not None and (start > last_chap or end > last_chap):
+        return jsonify({"error": f"Capítulo excede o último episódio disponível ({last_chap})"}), 400
+
     url_template = manhua.get("urlTemplate", "")
 
     def process_chapter(chap_num):
