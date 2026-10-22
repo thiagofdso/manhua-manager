@@ -110,18 +110,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
     setState(() {
       _currentChapter = nextChapter;
+      _currentManhua = _currentManhua.copyWith(currentChapter: nextChapter);
     });
 
-    final controller = context.read<ManhuaController>();
-    controller.changeChapterDelta(_currentManhua.id, delta);
-
-    if (controller.manhuas.any((m) => m.id == _currentManhua.id)) {
-      final updated = controller.manhuas.firstWhere((m) => m.id == _currentManhua.id);
-      _currentManhua = updated;
-      _currentChapter = updated.currentChapter;
-    } else {
-      _currentManhua = _currentManhua.copyWith(currentChapter: nextChapter);
-    }
+    try {
+      final controller = context.read<ManhuaController>();
+      controller.changeChapterDelta(_currentManhua.id, delta);
+    } catch (_) {}
 
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(

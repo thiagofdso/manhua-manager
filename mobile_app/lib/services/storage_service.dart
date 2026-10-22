@@ -7,35 +7,50 @@ class StorageService {
   static const String _keyBackendUrl = 'backend_base_url';
   static const String _keyCachedManhuas = 'cached_manhuas_list';
 
+  List<Manhua>? _memoryCache;
+
   Future<String> getBaseUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyBackendUrl) ?? _defaultUrl;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_keyBackendUrl) ?? _defaultUrl;
+    } catch (_) {
+      return _defaultUrl;
+    }
   }
 
   Future<void> setBaseUrl(String url) async {
-    final prefs = await SharedPreferences.getInstance();
-    String formatted = url.trim();
-    if (formatted.endsWith('/')) {
-      formatted = formatted.substring(0, formatted.length - 1);
-    }
-    await prefs.setString(_keyBackendUrl, formatted);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String formatted = url.trim();
+      if (formatted.endsWith('/')) {
+        formatted = formatted.substring(0, formatted.length - 1);
+      }
+      await prefs.setString(_keyBackendUrl, formatted);
+    } catch (_) {}
   }
 
   Future<void> saveCachedManhuas(List<Manhua> manhuas) async {
-    final prefs = await SharedPreferences.getInstance();
-    final listJson = manhuas.map((m) => m.toJson()).toList();
-    await prefs.setString(_keyCachedManhuas, jsonEncode(listJson));
+    _memoryCache = List.from(manhuas);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final listJson = manhuas.map((m) => m.toJson()).toList();
+      await prefs.setString(_keyCachedManhuas, jsonEncode(listJson));
+    } catch (_) {}
   }
 
   Future<List<Manhua>> getCachedManhuas() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_keyCachedManhuas);
-    if (raw == null || raw.isEmpty) return [];
+    if (_memoryCache != null && _memoryCache!.isNotEmpty) {
+      return _memoryCache!;
+    }
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_keyCachedManhuas);
+      if (raw == null || raw.isEmpty) return [];
       final List<dynamic> decoded = jsonDecode(raw);
-      return decoded.map((item) => Manhua.fromJson(item as Map<String, dynamic>)).toList();
+      _memoryCache = decoded.map((item) => Manhua.fromJson(item as Map<String, dynamic>)).toList();
+      return _memoryCache!;
     } catch (_) {
-      return [];
+      return _memoryCache ?? [];
     }
   }
 }

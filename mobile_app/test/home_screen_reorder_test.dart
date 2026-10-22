@@ -10,6 +10,10 @@ import 'package:mobile_app/services/storage_service.dart';
 class FakeStorageService extends StorageService {
   @override
   Future<String> getBaseUrl() async => 'http://100.84.57.79:5000';
+  @override
+  Future<List<Manhua>> getCachedManhuas() async => [];
+  @override
+  Future<void> saveCachedManhuas(List<Manhua> manhuas) async {}
 }
 
 class FakeApiService extends ApiService {

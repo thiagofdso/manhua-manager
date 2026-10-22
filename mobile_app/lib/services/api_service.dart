@@ -6,12 +6,15 @@ import 'storage_service.dart';
 class ApiService {
   final http.Client _client;
   final StorageService _storageService;
+  final Duration timeout;
 
   ApiService({
     http.Client? client,
     StorageService? storageService,
+    Duration? timeout,
   })  : _client = client ?? http.Client(),
-        _storageService = storageService ?? StorageService();
+        _storageService = storageService ?? StorageService(),
+        timeout = timeout ?? const Duration(seconds: 10);
 
   Future<String> _baseUrl() async {
     return await _storageService.getBaseUrl();
@@ -19,7 +22,7 @@ class ApiService {
 
   Future<List<Manhua>> fetchManhuas() async {
     final base = await _baseUrl();
-    final res = await _client.get(Uri.parse('$base/api/manhuas'));
+    final res = await _client.get(Uri.parse('$base/api/manhuas')).timeout(timeout);
     if (res.statusCode == 200) {
       final List<dynamic> data = jsonDecode(res.body);
       return data.map((item) => Manhua.fromJson(item as Map<String, dynamic>)).toList();
@@ -48,7 +51,7 @@ class ApiService {
         if (updateDay != null) 'updateDay': updateDay,
         'isHiatus': isHiatus,
       }),
-    );
+    ).timeout(timeout);
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       return Manhua.fromJson(data['item'] as Map<String, dynamic>);
@@ -63,7 +66,7 @@ class ApiService {
       Uri.parse('$base/api/manhuas/$id'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'delta': delta}),
-    );
+    ).timeout(timeout);
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       return Manhua.fromJson(data['item'] as Map<String, dynamic>);
@@ -104,7 +107,7 @@ class ApiService {
       Uri.parse('$base/api/manhuas/$id'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(body),
-    );
+    ).timeout(timeout);
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       return Manhua.fromJson(data['item'] as Map<String, dynamic>);
@@ -115,7 +118,7 @@ class ApiService {
 
   Future<void> deleteManhua(int id) async {
     final base = await _baseUrl();
-    final res = await _client.delete(Uri.parse('$base/api/manhuas/$id'));
+    final res = await _client.delete(Uri.parse('$base/api/manhuas/$id')).timeout(timeout);
     if (res.statusCode != 200) {
       throw Exception('Falha ao excluir manhua: ${res.statusCode}');
     }
@@ -127,7 +130,7 @@ class ApiService {
       Uri.parse('$base/api/manhuas/$id'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'isFavorite': isFavorite}),
-    );
+    ).timeout(timeout);
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       return Manhua.fromJson(data['item'] as Map<String, dynamic>);
@@ -142,7 +145,7 @@ class ApiService {
       Uri.parse('$base/api/manhuas/reorder'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'order': orderedIds}),
-    );
+    ).timeout(timeout);
     if (res.statusCode != 200) {
       throw Exception('Falha ao reordenar manhuas: ${res.statusCode}');
     }
@@ -153,7 +156,7 @@ class ApiService {
     final uri = Uri.parse('$base/api/chapter-images').replace(
       queryParameters: {'url': targetUrl},
     );
-    final res = await _client.get(uri);
+    final res = await _client.get(uri).timeout(timeout);
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       final List<dynamic> images = data['images'] ?? [];
@@ -176,7 +179,7 @@ class ApiService {
         'end': end.toString(),
       },
     );
-    final res = await _client.get(uri);
+    final res = await _client.get(uri).timeout(timeout);
     if (res.statusCode == 200) {
       return jsonDecode(res.body) as Map<String, dynamic>;
     } else {
@@ -185,7 +188,7 @@ class ApiService {
   }
 
   Future<List<int>> downloadImageBytes(String proxyUrl) async {
-    final res = await _client.get(Uri.parse(proxyUrl));
+    final res = await _client.get(Uri.parse(proxyUrl)).timeout(timeout);
     if (res.statusCode == 200) {
       return res.bodyBytes;
     } else {
@@ -195,7 +198,7 @@ class ApiService {
 
   Future<List<Map<String, dynamic>>> fetchNotifications() async {
     final base = await _baseUrl();
-    final res = await _client.get(Uri.parse('$base/api/notifications'));
+    final res = await _client.get(Uri.parse('$base/api/notifications')).timeout(timeout);
     if (res.statusCode == 200) {
       final List<dynamic> data = jsonDecode(res.body);
       return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
@@ -206,7 +209,7 @@ class ApiService {
 
   Future<void> deleteNotification(int id) async {
     final base = await _baseUrl();
-    final res = await _client.delete(Uri.parse('$base/api/notifications/$id'));
+    final res = await _client.delete(Uri.parse('$base/api/notifications/$id')).timeout(timeout);
     if (res.statusCode != 200) {
       throw Exception('Falha ao excluir notificação: ${res.statusCode}');
     }
@@ -214,7 +217,7 @@ class ApiService {
 
   Future<void> clearNotifications() async {
     final base = await _baseUrl();
-    final res = await _client.delete(Uri.parse('$base/api/notifications'));
+    final res = await _client.delete(Uri.parse('$base/api/notifications')).timeout(timeout);
     if (res.statusCode != 200) {
       throw Exception('Falha ao limpar notificações: ${res.statusCode}');
     }
@@ -226,7 +229,7 @@ class ApiService {
       Uri.parse('$base/api/routine/run-check'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'checkAll': checkAll}),
-    );
+    ).timeout(timeout);
     if (res.statusCode == 200) {
       return jsonDecode(res.body) as Map<String, dynamic>;
     } else {

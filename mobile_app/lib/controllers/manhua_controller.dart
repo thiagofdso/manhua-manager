@@ -45,7 +45,15 @@ class ManhuaController extends ChangeNotifier {
   Future<void> loadManhuas() async {
     _isLoading = true;
     _errorMessage = null;
-    notifyListeners();
+
+    // Carregamento instantâneo do cache offline para abertura imediata
+    final cached = await _storageService.getCachedManhuas();
+    if (cached.isNotEmpty && _manhuas.isEmpty) {
+      _manhuas = cached;
+      notifyListeners();
+    } else {
+      notifyListeners();
+    }
 
     try {
       final list = await _apiService.fetchManhuas();
@@ -54,9 +62,9 @@ class ManhuaController extends ChangeNotifier {
       await _storageService.saveCachedManhuas(list);
       await loadNotifications();
     } catch (e) {
-      final cached = await _storageService.getCachedManhuas();
-      if (cached.isNotEmpty) {
-        _manhuas = cached;
+      final fallbackCached = await _storageService.getCachedManhuas();
+      if (fallbackCached.isNotEmpty) {
+        _manhuas = fallbackCached;
         _isOfflineMode = true;
         _errorMessage = null;
       } else {
@@ -78,20 +86,16 @@ class ManhuaController extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      if (_isOfflineMode) {
-        final idx = _manhuas.indexWhere((m) => m.id == id);
-        if (idx != -1) {
-          final current = _manhuas[idx];
-          final nextChap = current.currentChapter + delta;
-          if (nextChap >= 1) {
-            _manhuas[idx] = current.copyWith(currentChapter: nextChap);
-            await _storageService.saveCachedManhuas(_manhuas);
-            notifyListeners();
-          }
+      _isOfflineMode = true;
+      final idx = _manhuas.indexWhere((m) => m.id == id);
+      if (idx != -1) {
+        final current = _manhuas[idx];
+        final nextChap = current.currentChapter + delta;
+        if (nextChap >= 1) {
+          _manhuas[idx] = current.copyWith(currentChapter: nextChap);
+          await _storageService.saveCachedManhuas(_manhuas);
+          notifyListeners();
         }
-      } else {
-        _errorMessage = e.toString();
-        notifyListeners();
       }
     }
   }

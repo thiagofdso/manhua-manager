@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -19,6 +20,21 @@ class FakeStorageService extends StorageService {
 
 void main() {
   group('ApiService Tests', () {
+    test('requisicao estoura timeout configurado', () async {
+      final mockClient = MockClient((request) async {
+        await Future.delayed(const Duration(milliseconds: 80));
+        return http.Response('ok', 200);
+      });
+      final storage = FakeStorageService();
+      final api = ApiService(
+        client: mockClient,
+        storageService: storage,
+        timeout: const Duration(milliseconds: 15),
+      );
+
+      expect(() => api.fetchManhuas(), throwsA(isA<TimeoutException>()));
+    });
+
     test('fetchManhuas deve retornar lista de manhuas', () async {
       final mockClient = MockClient((request) async {
         expect(request.url.path, '/api/manhuas');
