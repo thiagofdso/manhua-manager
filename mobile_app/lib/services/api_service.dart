@@ -28,7 +28,14 @@ class ApiService {
     }
   }
 
-  Future<Manhua> addManhua(String title, String urlTemplate, int currentChapter) async {
+  Future<Manhua> addManhua(
+    String title,
+    String urlTemplate,
+    int currentChapter, {
+    int? lastChapter,
+    int? updateDay,
+    bool isHiatus = false,
+  }) async {
     final base = await _baseUrl();
     final res = await _client.post(
       Uri.parse('$base/api/manhuas'),
@@ -37,6 +44,9 @@ class ApiService {
         'title': title,
         'urlTemplate': urlTemplate,
         'currentChapter': currentChapter,
+        if (lastChapter != null) 'lastChapter': lastChapter,
+        if (updateDay != null) 'updateDay': updateDay,
+        'isHiatus': isHiatus,
       }),
     );
     if (res.statusCode == 200) {
@@ -67,12 +77,28 @@ class ApiService {
     String? title,
     String? urlTemplate,
     int? chapter,
+    int? lastChapter,
+    bool clearLastChapter = false,
+    int? updateDay,
+    bool clearUpdateDay = false,
+    bool? isHiatus,
   }) async {
     final base = await _baseUrl();
     final Map<String, dynamic> body = {};
     if (title != null) body['title'] = title;
     if (urlTemplate != null) body['urlTemplate'] = urlTemplate;
     if (chapter != null) body['chapter'] = chapter;
+    if (clearLastChapter) {
+      body['lastChapter'] = null;
+    } else if (lastChapter != null) {
+      body['lastChapter'] = lastChapter;
+    }
+    if (clearUpdateDay) {
+      body['updateDay'] = null;
+    } else if (updateDay != null) {
+      body['updateDay'] = updateDay;
+    }
+    if (isHiatus != null) body['isHiatus'] = isHiatus;
 
     final res = await _client.patch(
       Uri.parse('$base/api/manhuas/$id'),
@@ -164,6 +190,47 @@ class ApiService {
       return res.bodyBytes;
     } else {
       throw Exception('Falha ao baixar imagem: ${res.statusCode}');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchNotifications() async {
+    final base = await _baseUrl();
+    final res = await _client.get(Uri.parse('$base/api/notifications'));
+    if (res.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(res.body);
+      return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } else {
+      throw Exception('Falha ao carregar notificações: ${res.statusCode}');
+    }
+  }
+
+  Future<void> deleteNotification(int id) async {
+    final base = await _baseUrl();
+    final res = await _client.delete(Uri.parse('$base/api/notifications/$id'));
+    if (res.statusCode != 200) {
+      throw Exception('Falha ao excluir notificação: ${res.statusCode}');
+    }
+  }
+
+  Future<void> clearNotifications() async {
+    final base = await _baseUrl();
+    final res = await _client.delete(Uri.parse('$base/api/notifications'));
+    if (res.statusCode != 200) {
+      throw Exception('Falha ao limpar notificações: ${res.statusCode}');
+    }
+  }
+
+  Future<Map<String, dynamic>> triggerManualCheck({bool checkAll = false}) async {
+    final base = await _baseUrl();
+    final res = await _client.post(
+      Uri.parse('$base/api/routine/run-check'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'checkAll': checkAll}),
+    );
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Falha ao disparar checagem manual: ${res.statusCode}');
     }
   }
 }

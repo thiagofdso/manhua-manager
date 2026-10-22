@@ -9,6 +9,9 @@ class Manhua {
   final Map<String, dynamic>? prevChapter;
   final bool isFavorite;
   final int? customOrder;
+  final int? lastChapter;
+  final int? updateDay;
+  final bool isHiatus;
 
   Manhua({
     required this.id,
@@ -21,6 +24,9 @@ class Manhua {
     this.prevChapter,
     this.isFavorite = false,
     this.customOrder,
+    this.lastChapter,
+    this.updateDay,
+    this.isHiatus = false,
   });
 
   factory Manhua.fromJson(Map<String, dynamic> json) {
@@ -39,6 +45,9 @@ class Manhua {
           : null,
       isFavorite: (json['isFavorite'] as bool?) ?? false,
       customOrder: json['customOrder'] as int?,
+      lastChapter: json['lastChapter'] as int?,
+      updateDay: json['updateDay'] as int?,
+      isHiatus: (json['isHiatus'] as bool?) ?? false,
     );
   }
 
@@ -54,6 +63,9 @@ class Manhua {
       if (prevChapter != null) 'prevChapter': prevChapter,
       'isFavorite': isFavorite,
       if (customOrder != null) 'customOrder': customOrder,
+      if (lastChapter != null) 'lastChapter': lastChapter,
+      if (updateDay != null) 'updateDay': updateDay,
+      'isHiatus': isHiatus,
     };
   }
 
@@ -84,6 +96,9 @@ class Manhua {
     Map<String, dynamic>? prevChapter,
     bool? isFavorite,
     int? customOrder,
+    int? lastChapter,
+    int? updateDay,
+    bool? isHiatus,
   }) {
     return Manhua(
       id: id ?? this.id,
@@ -96,6 +111,9 @@ class Manhua {
       prevChapter: prevChapter ?? this.prevChapter,
       isFavorite: isFavorite ?? this.isFavorite,
       customOrder: customOrder ?? this.customOrder,
+      lastChapter: lastChapter ?? this.lastChapter,
+      updateDay: updateDay ?? this.updateDay,
+      isHiatus: isHiatus ?? this.isHiatus,
     );
   }
 }

@@ -49,15 +49,30 @@ class FakeApiService extends ApiService {
   }
 
   @override
-  Future<Manhua> addManhua(String title, String urlTemplate, int currentChapter) async {
+  Future<Manhua> addManhua(
+    String title,
+    String urlTemplate,
+    int currentChapter, {
+    int? lastChapter,
+    int? updateDay,
+    bool isHiatus = false,
+  }) async {
     final newItem = Manhua(
       id: items.length + 1,
       title: title,
       urlTemplate: urlTemplate,
       currentChapter: currentChapter,
+      lastChapter: lastChapter,
+      updateDay: updateDay,
+      isHiatus: isHiatus,
     );
     items.add(newItem);
     return newItem;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchNotifications() async {
+    return [];
   }
 
   @override

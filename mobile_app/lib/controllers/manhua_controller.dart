@@ -8,6 +8,7 @@ class ManhuaController extends ChangeNotifier {
   final StorageService _storageService;
 
   List<Manhua> _manhuas = [];
+  List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = false;
   String? _errorMessage;
   bool _isOfflineMode = false;
@@ -22,6 +23,7 @@ class ManhuaController extends ChangeNotifier {
   }
 
   List<Manhua> get manhuas => _manhuas;
+  List<Map<String, dynamic>> get notifications => _notifications;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isOfflineMode => _isOfflineMode;
@@ -50,6 +52,7 @@ class ManhuaController extends ChangeNotifier {
       _manhuas = list;
       _isOfflineMode = false;
       await _storageService.saveCachedManhuas(list);
+      await loadNotifications();
     } catch (e) {
       final cached = await _storageService.getCachedManhuas();
       if (cached.isNotEmpty) {
@@ -93,11 +96,25 @@ class ManhuaController extends ChangeNotifier {
     }
   }
 
-  Future<void> addManhua(String title, String urlTemplate, int currentChapter) async {
+  Future<void> addManhua(
+    String title,
+    String urlTemplate,
+    int currentChapter, {
+    int? lastChapter,
+    int? updateDay,
+    bool isHiatus = false,
+  }) async {
     _isLoading = true;
     notifyListeners();
     try {
-      final created = await _apiService.addManhua(title, urlTemplate, currentChapter);
+      final created = await _apiService.addManhua(
+        title,
+        urlTemplate,
+        currentChapter,
+        lastChapter: lastChapter,
+        updateDay: updateDay,
+        isHiatus: isHiatus,
+      );
       _manhuas.add(created);
     } catch (e) {
       _errorMessage = 'Erro ao adicionar manhua: $e';
@@ -112,6 +129,11 @@ class ManhuaController extends ChangeNotifier {
     String? title,
     String? urlTemplate,
     int? chapter,
+    int? lastChapter,
+    bool clearLastChapter = false,
+    int? updateDay,
+    bool clearUpdateDay = false,
+    bool? isHiatus,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -121,6 +143,11 @@ class ManhuaController extends ChangeNotifier {
         title: title,
         urlTemplate: urlTemplate,
         chapter: chapter,
+        lastChapter: lastChapter,
+        clearLastChapter: clearLastChapter,
+        updateDay: updateDay,
+        clearUpdateDay: clearUpdateDay,
+        isHiatus: isHiatus,
       );
       final idx = _manhuas.indexWhere((m) => m.id == id);
       if (idx != -1) {
@@ -128,6 +155,43 @@ class ManhuaController extends ChangeNotifier {
       }
     } catch (e) {
       _errorMessage = 'Erro ao atualizar manhua: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadNotifications() async {
+    try {
+      final notifs = await _apiService.fetchNotifications();
+      _notifications = notifs;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> dismissNotification(int id) async {
+    try {
+      await _apiService.deleteNotification(id);
+      _notifications.removeWhere((n) => n['id'] == id);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> clearAllNotifications() async {
+    try {
+      await _apiService.clearNotifications();
+      _notifications.clear();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<Map<String, dynamic>> triggerManualCheck({bool checkAll = false}) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final res = await _apiService.triggerManualCheck(checkAll: checkAll);
+      await loadManhuas();
+      return res;
     } finally {
       _isLoading = false;
       notifyListeners();
