@@ -8,9 +8,11 @@ import '../services/download_manager.dart';
 import 'reader_screen.dart';
 import 'widgets/active_downloads_dialog.dart';
 import 'widgets/add_manhua_dialog.dart';
+import 'widgets/app_drawer.dart';
 import 'widgets/download_manhua_dialog.dart';
 import 'widgets/edit_manhua_dialog.dart';
 import 'widgets/settings_dialog.dart';
+import 'widgets/storage_management_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isEditingOrder = false;
   List<Manhua> _editingFavorites = [];
   List<Manhua> _editingOthers = [];
+  final List<String> _weekdays = const ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
   @override
   void initState() {
@@ -128,16 +131,20 @@ class _HomeScreenState extends State<HomeScreen> {
     final activeCount = downloadManager?.activeTasks.length ?? 0;
 
     return Scaffold(
+      drawer: _isEditingOrder
+          ? null
+          : AppDrawer(
+              onEnterEditOrder: controller.manhuas.isEmpty
+                  ? null
+                  : () => _enterEditOrderMode(controller.manhuas),
+              onRefresh: () => controller.loadManhuas(),
+              downloadManager: downloadManager,
+            ),
       appBar: AppBar(
-        title: _isEditingOrder
-            ? const Text('Editar Ordem', style: TextStyle(fontWeight: FontWeight.bold))
-            : const Row(
-                children: [
-                  Icon(Icons.auto_stories, color: Color(0xFF8257E6)),
-                  SizedBox(width: 10),
-                  Text('Manhua Manager', style: TextStyle(fontWeight: FontWeight.bold)),
-                ],
-              ),
+        title: Text(
+          _isEditingOrder ? 'Editar Ordem' : 'Manhua Manager',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: _isEditingOrder
             ? [
                 IconButton(
@@ -152,15 +159,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ]
             : [
-                if (downloadManager != null)
+                if (downloadManager != null && activeCount > 0)
                   IconButton(
-                    icon: activeCount > 0
-                        ? Badge(
-                            label: Text('$activeCount'),
-                            backgroundColor: const Color(0xFF8257E6),
-                            child: const Icon(Icons.downloading, color: Color(0xFF8257E6)),
-                          )
-                        : const Icon(Icons.downloading_outlined),
+                    icon: Badge(
+                      label: Text('$activeCount'),
+                      backgroundColor: const Color(0xFF8257E6),
+                      child: const Icon(Icons.downloading, color: Color(0xFF8257E6)),
+                    ),
                     tooltip: 'Downloads em Andamento',
                     onPressed: () {
                       showDialog(
@@ -169,23 +174,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     },
                   ),
-                IconButton(
-                  icon: const Icon(Icons.sort_rounded),
-                  tooltip: 'Editar Ordem da Lista',
-                  onPressed: controller.manhuas.isEmpty
-                      ? null
-                      : () => _enterEditOrderMode(controller.manhuas),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined),
-                  tooltip: 'Configurar IP do Backend',
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => const SettingsDialog(),
-                    );
-                  },
-                ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   tooltip: 'Atualizar Lista',
@@ -365,20 +353,52 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF29292E),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'Capítulo ${manhua.currentChapter}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF8257E6),
-                                fontWeight: FontWeight.w600,
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF29292E),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'Capítulo ${manhua.currentChapter}${manhua.lastChapter != null ? ' / ${manhua.lastChapter}' : ''}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF8257E6),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
-                            ),
+                              if (manhua.updateDay != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF18181B),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFF323238)),
+                                  ),
+                                  child: Text(
+                                    _weekdays[manhua.updateDay!],
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                ),
+                              if (manhua.isHiatus)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0x33EF4444),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    '⏸️ Hiato',
+                                    style: TextStyle(fontSize: 11, color: Colors.redAccent, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
                       ),
@@ -392,9 +412,18 @@ class _HomeScreenState extends State<HomeScreen> {
                           : null,
                     ),
                     IconButton(
-                      icon: const Icon(Icons.add_circle_outline, color: Color(0xFF8257E6)),
-                      tooltip: 'Próximo Capítulo (+1)',
-                      onPressed: () => controller.changeChapterDelta(manhua.id, 1),
+                      icon: Icon(
+                        Icons.add_circle_outline,
+                        color: (manhua.lastChapter != null && manhua.currentChapter >= manhua.lastChapter!)
+                            ? Colors.grey.withOpacity(0.3)
+                            : const Color(0xFF8257E6),
+                      ),
+                      tooltip: (manhua.lastChapter != null && manhua.currentChapter >= manhua.lastChapter!)
+                          ? 'Último capítulo atingido'
+                          : 'Próximo Capítulo (+1)',
+                      onPressed: (manhua.lastChapter != null && manhua.currentChapter >= manhua.lastChapter!)
+                          ? null
+                          : () => controller.changeChapterDelta(manhua.id, 1),
                     ),
                     // Botão Leitor
                     IconButton(
@@ -620,6 +649,125 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showNotificationsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF202024),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return Consumer<ManhuaController>(
+          builder: (ctx, ctrl, _) {
+            final notifs = ctrl.notifications;
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Notificações',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(sheetContext),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF323238),
+                              foregroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('Verificar Agora', style: TextStyle(fontSize: 12)),
+                            onPressed: () async {
+                              final res = await ctrl.triggerManualCheck();
+                              if (sheetContext.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Verificação concluída: ${res['checkedCount'] ?? 0} checadas, ${res['newChaptersFound'] ?? 0} novo(s) episódio(s).',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (notifs.isNotEmpty)
+                          TextButton.icon(
+                            icon: const Icon(Icons.delete_sweep, size: 16, color: Colors.grey),
+                            label: const Text('Limpar todas', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                            onPressed: () => ctrl.clearAllNotifications(),
+                          ),
+                      ],
+                    ),
+                    const Divider(color: Color(0xFF323238), height: 24),
+                    if (notifs.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32.0),
+                        child: Text(
+                          'Nenhuma notificação no momento.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: notifs.length,
+                          itemBuilder: (c, idx) {
+                            final n = notifs[idx];
+                            final title = n['title'] ?? 'Nova atualização';
+                            final msg = n['message'] ?? 'Novo episódio disponível!';
+                            final manhuaId = n['manhuaId'] as int?;
+                            return Card(
+                              color: const Color(0xFF18181B),
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                title: Text(title.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                subtitle: Text(msg.toString(), style: const TextStyle(color: Color(0xFF8257E6), fontSize: 12)),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.close, size: 18, color: Colors.grey),
+                                  onPressed: () => ctrl.dismissNotification(n['id'] as int),
+                                ),
+                                onTap: () {
+                                  ctrl.dismissNotification(n['id'] as int);
+                                  Navigator.pop(sheetContext);
+                                  if (manhuaId != null) {
+                                    final m = ctrl.manhuas.firstWhere(
+                                      (item) => item.id == manhuaId,
+                                      orElse: () => ctrl.manhuas.first,
+                                    );
+                                    _openReader(m);
+                                  }
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -56,12 +56,16 @@ void main() {
     expect(find.byIcon(Icons.star), findsOneWidget);
     expect(find.byIcon(Icons.star_border), findsOneWidget);
 
-    // Botão de editar ordem no AppBar
-    final sortBtn = find.byTooltip('Editar Ordem da Lista');
-    expect(sortBtn, findsOneWidget);
+    // Abre o menu sanduíche
+    final drawerBtn = find.byTooltip('Open navigation menu');
+    expect(drawerBtn, findsOneWidget);
+    await tester.tap(drawerBtn);
+    await tester.pumpAndSettle();
 
-    // Clica no botão de editar ordem
-    await tester.tap(sortBtn);
+    // Clica na opção de Organizar Obras
+    final sortTile = find.text('Organizar Obras');
+    expect(sortTile, findsOneWidget);
+    await tester.tap(sortTile);
     await tester.pumpAndSettle();
 
     // Deve entrar em modo de edição
