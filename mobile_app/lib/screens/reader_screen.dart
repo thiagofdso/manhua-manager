@@ -104,6 +104,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Future<void> _changeChapter(int delta) async {
     final nextChapter = _currentChapter + delta;
     if (nextChapter < 1) return;
+    if (delta > 0 && _currentManhua.lastChapter != null && _currentChapter >= _currentManhua.lastChapter!) {
+      return;
+    }
 
     setState(() {
       _currentChapter = nextChapter;
@@ -176,7 +179,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
           final velocity = details.primaryVelocity ?? 0;
           if (velocity < -300) {
             // Deslizar da direita para a esquerda: Próximo capítulo
-            _changeChapter(1);
+            if (_currentManhua.lastChapter != null && _currentChapter >= _currentManhua.lastChapter!) {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Você já está no último episódio disponível (${_currentManhua.lastChapter}).'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            } else {
+              _changeChapter(1);
+            }
           } else if (velocity > 300) {
             // Deslizar da esquerda para a direita: Capítulo anterior
             _changeChapter(-1);
@@ -206,10 +219,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8257E6),
+                  backgroundColor: (_currentManhua.lastChapter != null && _currentChapter >= _currentManhua.lastChapter!)
+                      ? const Color(0xFF323238)
+                      : const Color(0xFF8257E6),
                   foregroundColor: Colors.white,
                 ),
-                onPressed: () => _changeChapter(1),
+                onPressed: (_currentManhua.lastChapter != null && _currentChapter >= _currentManhua.lastChapter!)
+                    ? null
+                    : () => _changeChapter(1),
                 icon: const Icon(Icons.arrow_forward, size: 16),
                 label: const Text('Próximo'),
               ),
