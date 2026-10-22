@@ -16,3 +16,13 @@ def test_web_index_contains_last_chapter_and_notification_elements():
     assert 'id="notificationBadge"' in html
     assert 'id="notificationModal"' in html
     assert 'id="btnTriggerManualCheck"' in html
+
+
+def test_web_index_contains_download_last_chapter_validation():
+    with open("index.html", "r", encoding="utf-8") as f:
+        html = f.read()
+
+    # Validação no startBatchDownload e ajuste de max no openDownloadModal
+    assert "m.lastChapter != null" in html
+    assert "ultrapassar o último episódio disponível" in html
+

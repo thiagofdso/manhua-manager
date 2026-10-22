@@ -1355,12 +1355,28 @@
 
       document.getElementById('downloadModalTitle').innerText = `Downloads: ${m.title}`;
       const task = activeDownloads[id];
+      const maxChap = m.lastChapter;
+      const startVal = m.currentChapter || 1;
+      let defaultEnd = startVal + 4;
+      if (maxChap != null) {
+        defaultEnd = Math.min(defaultEnd, maxChap);
+        if (defaultEnd < startVal) defaultEnd = startVal;
+      }
+
       if (task) {
         document.getElementById('downloadStartChapter').value = task.start;
         document.getElementById('downloadEndChapter').value = task.end;
       } else {
-        document.getElementById('downloadStartChapter').value = m.currentChapter || 1;
-        document.getElementById('downloadEndChapter').value = (m.currentChapter || 1) + 4;
+        document.getElementById('downloadStartChapter').value = startVal;
+        document.getElementById('downloadEndChapter').value = defaultEnd;
+      }
+
+      if (maxChap != null) {
+        document.getElementById('downloadStartChapter').max = maxChap;
+        document.getElementById('downloadEndChapter').max = maxChap;
+      } else {
+        document.getElementById('downloadStartChapter').removeAttribute('max');
+        document.getElementById('downloadEndChapter').removeAttribute('max');
       }
 
       syncDownloadModalUI(id);
@@ -1480,6 +1496,11 @@
 
       if (isNaN(start) || isNaN(end) || start < 1 || end < start) {
         alert('Por favor, informe um intervalo válido (Capítulo inicial >= 1 e <= Capítulo final).');
+        return;
+      }
+
+      if (m.lastChapter != null && (start > m.lastChapter || end > m.lastChapter)) {
+        alert(`O intervalo não pode ultrapassar o último episódio disponível (${m.lastChapter}).`);
         return;
       }
 
