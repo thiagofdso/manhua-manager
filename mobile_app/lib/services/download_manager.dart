@@ -41,6 +41,9 @@ class DownloadManager extends ChangeNotifier {
     required DownloadService downloadService,
   }) async {
     if (isDownloading(manhua.id)) return;
+    if (manhua.lastChapter != null && (startChapter > manhua.lastChapter! || endChapter > manhua.lastChapter!)) {
+      return;
+    }
 
     final task = DownloadTask(
       manhuaId: manhua.id,

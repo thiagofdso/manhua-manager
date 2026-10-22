@@ -127,4 +127,42 @@ void main() {
 
     expect(downloadManager.getTask(1)?.isCancelled, isTrue);
   });
+
+  testWidgets('DownloadManhuaDialog bloqueia download e exibe snackbar quando excede lastChapter', (tester) async {
+    final limitedManhua = Manhua(
+      id: 99,
+      title: 'Obra Limitada',
+      urlTemplate: 'https://exemplo.com/{chapter}',
+      currentChapter: 10,
+      lastChapter: 12,
+    );
+
+    await tester.pumpWidget(
+      createTestWidget(
+        child: DownloadManhuaDialog(
+          manhua: limitedManhua,
+          downloadService: downloadService,
+          downloadManager: downloadManager,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // O campo fim sugerido não deve ultrapassar o lastChapter (12)
+    final endFinder = find.widgetWithText(TextField, '12');
+    expect(endFinder, findsOneWidget);
+
+    // Digita um capítulo final além do limite (15)
+    await tester.enterText(endFinder, '15');
+    await tester.pumpAndSettle();
+
+    // Clica em Iniciar Download
+    await tester.tap(find.text('Iniciar Download'));
+    await tester.pumpAndSettle();
+
+    // Verifica mensagem de bloqueio no SnackBar
+    expect(find.textContaining('O intervalo não pode ultrapassar o último episódio disponível (12)'), findsOneWidget);
+    // Verifica que nenhuma tarefa de download foi iniciada
+    expect(downloadManager.isDownloading(99), isFalse);
+  });
 }

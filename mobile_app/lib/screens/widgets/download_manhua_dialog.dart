@@ -36,7 +36,15 @@ class _DownloadManhuaDialogState extends State<DownloadManhuaDialog> {
     _downloadService = widget.downloadService ?? DownloadService();
     final startChap = widget.manhua.currentChapter > 0 ? widget.manhua.currentChapter : 1;
     _startController = TextEditingController(text: startChap.toString());
-    _endController = TextEditingController(text: (startChap + 4).toString());
+    
+    final last = widget.manhua.lastChapter;
+    var endChap = startChap + 4;
+    if (last != null) {
+      if (endChap > last) {
+        endChap = (startChap > last) ? startChap : last;
+      }
+    }
+    _endController = TextEditingController(text: endChap.toString());
     _loadDownloadedChapters();
   }
 
@@ -98,6 +106,16 @@ class _DownloadManhuaDialogState extends State<DownloadManhuaDialog> {
         const SnackBar(content: Text('Por favor, informe um intervalo válido (Início >= 1 e <= Fim).')),
       );
       return;
+    }
+
+    if (widget.manhua.lastChapter != null) {
+      final last = widget.manhua.lastChapter!;
+      if (start > last || end > last) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('O intervalo não pode ultrapassar o último episódio disponível ($last).')),
+        );
+        return;
+      }
     }
 
     if ((end - start + 1) > 50) {
