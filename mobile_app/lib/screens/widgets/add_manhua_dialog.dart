@@ -14,12 +14,18 @@ class _AddManhuaDialogState extends State<AddManhuaDialog> {
   final _titleController = TextEditingController();
   final _urlController = TextEditingController();
   final _chapterController = TextEditingController();
+  final _lastChapterController = TextEditingController();
+
+  int? _selectedUpdateDay;
+  bool _isHiatus = false;
+  final List<String> _weekdays = const ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
   @override
   void dispose() {
     _titleController.dispose();
     _urlController.dispose();
     _chapterController.dispose();
+    _lastChapterController.dispose();
     super.dispose();
   }
 
@@ -29,6 +35,8 @@ class _AddManhuaDialogState extends State<AddManhuaDialog> {
     final title = _titleController.text.trim();
     final rawUrl = _urlController.text.trim();
     final chapter = int.parse(_chapterController.text.trim());
+    final lastChapterText = _lastChapterController.text.trim();
+    final lastChapter = lastChapterText.isNotEmpty ? int.tryParse(lastChapterText) : null;
 
     String urlTemplate = rawUrl;
     if (!urlTemplate.contains('{chapter}')) {
@@ -44,7 +52,14 @@ class _AddManhuaDialogState extends State<AddManhuaDialog> {
       }
     }
 
-    await context.read<ManhuaController>().addManhua(title, urlTemplate, chapter);
+    await context.read<ManhuaController>().addManhua(
+      title,
+      urlTemplate,
+      chapter,
+      lastChapter: lastChapter,
+      updateDay: _selectedUpdateDay,
+      isHiatus: _isHiatus,
+    );
 
     if (mounted) {
       Navigator.pop(context);
@@ -63,6 +78,7 @@ class _AddManhuaDialogState extends State<AddManhuaDialog> {
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
                 controller: _titleController,
@@ -99,6 +115,56 @@ class _AddManhuaDialogState extends State<AddManhuaDialog> {
                   final n = int.tryParse(val.trim());
                   if (n == null || n < 1) return 'Capítulo inválido';
                   return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _lastChapterController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Último Episódio Lançado (opcional)',
+                  hintText: 'Ex: 245 (vazio se ilimitado)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Dia de Atualização Semanal',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 6),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: List.generate(_weekdays.length, (idx) {
+                    final isSelected = _selectedUpdateDay == idx;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 4.0),
+                      child: ChoiceChip(
+                        label: Text(_weekdays[idx]),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFF8257E6),
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedUpdateDay = selected ? idx : null;
+                          });
+                        },
+                      ),
+                    );
+                  }),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Obra em Hiato', style: TextStyle(fontSize: 14)),
+                subtitle: const Text('Pausa verificações automáticas', style: TextStyle(fontSize: 11)),
+                value: _isHiatus,
+                activeColor: const Color(0xFF8257E6),
+                onChanged: (val) {
+                  setState(() {
+                    _isHiatus = val;
+                  });
                 },
               ),
             ],

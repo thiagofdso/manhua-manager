@@ -175,6 +175,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                 IconButton(
+                  icon: Badge.count(
+                    count: controller.notifications.length,
+                    isLabelVisible: controller.notifications.isNotEmpty,
+                    backgroundColor: Colors.redAccent,
+                    child: const Icon(Icons.notifications_outlined),
+                  ),
+                  tooltip: 'Notificações',
+                  onPressed: () => _showNotificationsSheet(context),
+                ),
+                IconButton(
                   icon: const Icon(Icons.refresh),
                   tooltip: 'Atualizar Lista',
                   onPressed: () => controller.loadManhuas(),

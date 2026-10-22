@@ -17,6 +17,11 @@ class _EditManhuaDialogState extends State<EditManhuaDialog> {
   late TextEditingController _titleController;
   late TextEditingController _urlController;
   late TextEditingController _chapterController;
+  late TextEditingController _lastChapterController;
+
+  int? _selectedUpdateDay;
+  late bool _isHiatus;
+  final List<String> _weekdays = const ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
   @override
   void initState() {
@@ -25,6 +30,11 @@ class _EditManhuaDialogState extends State<EditManhuaDialog> {
     _urlController = TextEditingController(text: widget.manhua.urlTemplate);
     _chapterController =
         TextEditingController(text: widget.manhua.currentChapter.toString());
+    _lastChapterController = TextEditingController(
+      text: widget.manhua.lastChapter != null ? widget.manhua.lastChapter.toString() : '',
+    );
+    _selectedUpdateDay = widget.manhua.updateDay;
+    _isHiatus = widget.manhua.isHiatus;
   }
 
   @override
@@ -32,6 +42,7 @@ class _EditManhuaDialogState extends State<EditManhuaDialog> {
     _titleController.dispose();
     _urlController.dispose();
     _chapterController.dispose();
+    _lastChapterController.dispose();
     super.dispose();
   }
 
@@ -41,6 +52,8 @@ class _EditManhuaDialogState extends State<EditManhuaDialog> {
     final title = _titleController.text.trim();
     final rawUrl = _urlController.text.trim();
     final chapter = int.parse(_chapterController.text.trim());
+    final lastChapterText = _lastChapterController.text.trim();
+    final lastChapter = lastChapterText.isNotEmpty ? int.tryParse(lastChapterText) : null;
 
     String urlTemplate = rawUrl;
     if (!urlTemplate.contains('{chapter}')) {
@@ -57,11 +70,16 @@ class _EditManhuaDialogState extends State<EditManhuaDialog> {
     }
 
     await context.read<ManhuaController>().editManhua(
-          widget.manhua.id,
-          title: title,
-          urlTemplate: urlTemplate,
-          chapter: chapter,
-        );
+      widget.manhua.id,
+      title: title,
+      urlTemplate: urlTemplate,
+      chapter: chapter,
+      lastChapter: lastChapter,
+      clearLastChapter: lastChapterText.isEmpty,
+      updateDay: _selectedUpdateDay,
+      clearUpdateDay: _selectedUpdateDay == null,
+      isHiatus: _isHiatus,
+    );
 
     if (mounted) {
       Navigator.pop(context);
@@ -80,6 +98,7 @@ class _EditManhuaDialogState extends State<EditManhuaDialog> {
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
                 controller: _titleController,
@@ -113,6 +132,56 @@ class _EditManhuaDialogState extends State<EditManhuaDialog> {
                   final n = int.tryParse(val.trim());
                   if (n == null || n < 1) return 'Capítulo inválido';
                   return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _lastChapterController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Último Episódio Lançado (opcional)',
+                  hintText: 'Ex: 245 (vazio se ilimitado)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Dia de Atualização Semanal',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 6),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: List.generate(_weekdays.length, (idx) {
+                    final isSelected = _selectedUpdateDay == idx;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 4.0),
+                      child: ChoiceChip(
+                        label: Text(_weekdays[idx]),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFF8257E6),
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedUpdateDay = selected ? idx : null;
+                          });
+                        },
+                      ),
+                    );
+                  }),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Obra em Hiato', style: TextStyle(fontSize: 14)),
+                subtitle: const Text('Pausa verificações automáticas', style: TextStyle(fontSize: 11)),
+                value: _isHiatus,
+                activeColor: const Color(0xFF8257E6),
+                onChanged: (val) {
+                  setState(() {
+                    _isHiatus = val;
+                  });
                 },
               ),
             ],
