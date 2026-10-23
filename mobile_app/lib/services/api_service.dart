@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/manhua.dart';
+import '../models/import_domain.dart';
+import '../models/import_work_item.dart';
 import 'storage_service.dart';
 
 class ApiService {
@@ -235,5 +237,63 @@ class ApiService {
     } else {
       throw Exception('Falha ao disparar checagem manual: ${res.statusCode}');
     }
+  }
+
+  Future<List<ImportDomain>> fetchImportDomains() async {
+    final base = await _baseUrl();
+    final uri = Uri.parse('$base/api/import/domains');
+    final response = await _client.get(uri).timeout(timeout);
+    if (response.statusCode == 200) {
+      final List<dynamic> list = jsonDecode(response.body);
+      return list.map((e) => ImportDomain.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    throw Exception('Falha ao carregar domínios para importação: ${response.statusCode}');
+  }
+
+  Future<ImportBrowseResult> browseImportWorks({
+    required String domain,
+    String? query,
+    int page = 1,
+  }) async {
+    final base = await _baseUrl();
+    final queryParams = {'domain': domain, 'page': page.toString()};
+    if (query != null && query.trim().isNotEmpty) {
+      queryParams['q'] = query.trim();
+    }
+    final uri = Uri.parse('$base/api/import/browse').replace(queryParameters: queryParams);
+    final response = await _client.get(uri).timeout(timeout);
+    if (response.statusCode == 200) {
+      return ImportBrowseResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    }
+    String err = 'Falha ao buscar obras para importação: ${response.statusCode}';
+    try {
+      final parsed = jsonDecode(response.body);
+      if (parsed is Map && parsed['error'] != null) {
+        err = parsed['error'].toString();
+      }
+    } catch (_) {}
+    throw Exception(err);
+  }
+
+  Future<ImportResponse> importWorks(List<ImportWorkItem> items) async {
+    final base = await _baseUrl();
+    final uri = Uri.parse('$base/api/import');
+    final response = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'items': items.map((e) => e.toJson()).toList()}),
+    ).timeout(timeout);
+
+    if (response.statusCode == 200) {
+      return ImportResponse.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    }
+    String err = 'Falha ao importar obras: ${response.statusCode}';
+    try {
+      final parsed = jsonDecode(response.body);
+      if (parsed is Map && parsed['error'] != null) {
+        err = parsed['error'].toString();
+      }
+    } catch (_) {}
+    throw Exception(err);
   }
 }
