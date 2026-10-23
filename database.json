@@ -3,50 +3,72 @@
     "id": 1,
     "title": "Overgeared",
     "urlTemplate": "https://asurascans.com/comics/overgeared-11fe7da3/chapter/{chapter}",
-    "currentChapter": 243,
-    "updatedAt": 1792596927,
+    "currentChapter": 250,
+    "updatedAt": 1792684280,
     "customOrder": -1,
-    "isFavorite": true
+    "isFavorite": true,
+    "lastChapter": 344,
+    "updateDay": 4,
+    "isHiatus": false
   },
   {
     "id": 1792485389283,
     "title": "The extras academy survival guide",
     "urlTemplate": "https://asurascans.com/comics/the-extras-academy-survival-guide-11fe7da3/chapter/{chapter}",
     "currentChapter": 74,
-    "updatedAt": 1792485439,
-    "customOrder": 15
+    "updatedAt": 1792631247,
+    "customOrder": -13,
+    "lastChapter": 128,
+    "updateDay": 3,
+    "isHiatus": false
   },
   {
     "id": 1792485866905,
     "title": "Player who returned 10000 years later",
     "urlTemplate": "https://asurascans.com/comics/player-who-returned-10000-years-later-11fe7da3/chapter/{chapter}",
     "currentChapter": 159,
-    "updatedAt": 1792485866,
-    "customOrder": 14
+    "updatedAt": 1792631208,
+    "customOrder": -12,
+    "lastChapter": 163,
+    "updateDay": 2,
+    "isHiatus": false
   },
   {
     "id": 1792485941434,
     "title": "Surviving the game as a Barbarian",
     "urlTemplate": "https://asurascans.com/comics/surviving-the-game-as-a-barbarian-11fe7da3/chapter/{chapter}",
     "currentChapter": 164,
-    "updatedAt": 1792486783,
-    "customOrder": 6
+    "updatedAt": 1792630650,
+    "customOrder": -4,
+    "lastChapter": 165,
+    "updateDay": 3,
+    "isHiatus": false
   },
   {
     "id": 1792486063617,
     "title": "Almighty Pig Slaughtering Knife",
     "urlTemplate": "https://ravenscans.org/almighty-pig-slaughtering-knife-chapter-{chapter}/",
     "currentChapter": 61,
-    "updatedAt": 1792486063,
-    "customOrder": 13
+    "updatedAt": 1792637414,
+    "customOrder": -11,
+    "nextChapter": {
+      "url": "https://ravenscans.org#/next/",
+      "number": null
+    },
+    "prevChapter": {
+      "url": "https://ravenscans.org#/prev/",
+      "number": null
+    },
+    "lastChapter": 66,
+    "updateDay": 2,
+    "isHiatus": false
   },
   {
     "id": 1792486208307,
     "title": "The Jobless Guy who has come to slay",
     "urlTemplate": "https://comix.to/title/q8qxd-the-jobless-guy-who-has-come-to-slay/{chapter}",
     "currentChapter": 231,
-    "updatedAt": 1792516559,
-    "chapterId": 11349222,
+    "updatedAt": 1792631108,
     "nextChapter": {
       "id": 11385174,
       "number": 232,
@@ -57,23 +79,28 @@
       "number": 230,
       "url": "https://comix.to/title/q8qxd-the-jobless-guy-who-has-come-to-slay/11323925-chapter-230"
     },
-    "customOrder": 12
+    "customOrder": -10,
+    "lastChapter": 236,
+    "updateDay": 1,
+    "isHiatus": false
   },
   {
     "id": 1792486667964,
     "title": "Apex Future Martial Arts",
     "urlTemplate": "https://manhuatop.org/manhua/apex-future-martial-arts/chapter-{chapter}/",
     "currentChapter": 344,
-    "updatedAt": 1792486667,
-    "customOrder": 7
+    "updatedAt": 1792637415,
+    "customOrder": -5,
+    "lastChapter": 362,
+    "updateDay": 2,
+    "isHiatus": false
   },
   {
     "id": 1792487128256,
     "title": "Necromancer the ultimate scouge",
-    "urlTemplate": "https://mangafire.to/title/nk6zl-necromancer-the-ultimate-scourge/chapter/9427010",
+    "urlTemplate": "https://mangafire.to/title/nk6zl-necromancer-the-ultimate-scourge/chapter/{chapter}",
     "currentChapter": 306,
-    "updatedAt": 1792512236,
-    "chapterId": 9427010,
+    "updatedAt": 1792630520,
     "nextChapter": {
       "id": 9442025,
       "number": 307,
@@ -86,14 +113,17 @@
       "language": "en",
       "url": "/title/nk6zl-necromancer-the-ultimate-scourge/chapter/9426675"
     },
-    "customOrder": 4
+    "customOrder": -2,
+    "lastChapter": 315,
+    "updateDay": 6,
+    "isHiatus": false
   },
   {
     "id": 1792536414041,
     "title": "Pick Me Up Infinite Gacha",
     "urlTemplate": "https://w19.pickmeupgacha.com/pick-me-up-infinite-gacha-chapter-{chapter}/",
     "currentChapter": 219,
-    "updatedAt": 1792544381,
+    "updatedAt": 1792630459,
     "nextChapter": {
       "url": "https://w19.pickmeupgacha.com/pick-me-up-infinite-gacha-chapter-220/",
       "number": 220
@@ -102,14 +132,17 @@
       "url": "https://w19.pickmeupgacha.com/pick-me-up-infinite-gacha-chapter-218/",
       "number": 218
     },
-    "customOrder": 3
+    "customOrder": -1,
+    "lastChapter": 224,
+    "updateDay": 4,
+    "isHiatus": false
   },
   {
     "id": 1792536526374,
     "title": "After Rebirth I Used Mirror Reversal for Vengeance",
     "urlTemplate": "https://arenascan.com/after-rebirth-i-used-mirror-reversal-for-vengeance-chapter-{chapter}/",
     "currentChapter": 63,
-    "updatedAt": 1792544332,
+    "updatedAt": 1792630865,
     "nextChapter": {
       "url": "https://arenascan.com#/next/",
       "number": null
@@ -118,14 +151,17 @@
       "url": "https://arenascan.com#/prev/",
       "number": null
     },
-    "customOrder": 8
+    "customOrder": -6,
+    "lastChapter": 71,
+    "updateDay": 2,
+    "isHiatus": false
   },
   {
     "id": 1792536637134,
     "title": "Return of The Fronzen Player",
     "urlTemplate": "https://mangak.io/return-of-the-frozen-player/chapter-{chapter}",
     "currentChapter": 224,
-    "updatedAt": 1792544375,
+    "updatedAt": 1792630420,
     "nextChapter": {
       "url": "https://mangak.io/return-of-the-frozen-player/chapter-225",
       "number": 225
@@ -134,14 +170,17 @@
       "url": "https://mangak.io/return-of-the-frozen-player/chapter-223",
       "number": 223
     },
-    "customOrder": 2
+    "customOrder": 0,
+    "lastChapter": 230,
+    "updateDay": 4,
+    "isHiatus": false
   },
   {
     "id": 1792536702987,
     "title": "Worthless Profession Dragon Tamer",
     "urlTemplate": "https://manhuaus.com/manga/worthless-profession-dragon-tamer/chapter-{chapter}/",
     "currentChapter": 278,
-    "updatedAt": 1792544347,
+    "updatedAt": 1792630999,
     "nextChapter": {
       "url": "https://manhuaus.com/manga/worthless-profession-dragon-tamer/chapter-279/",
       "number": 279
@@ -150,14 +189,17 @@
       "url": "https://manhuaus.com/manga/worthless-profession-dragon-tamer/chapter-277/",
       "number": 277
     },
-    "customOrder": 10
+    "customOrder": -8,
+    "lastChapter": 298,
+    "updateDay": 6,
+    "isHiatus": false
   },
   {
     "id": 1792536751018,
     "title": "Magic Emperor",
     "urlTemplate": "https://magicemperor.online/manga/magic-emperor-chapter-{chapter}/",
     "currentChapter": 900,
-    "updatedAt": 1792544356,
+    "updatedAt": 1792630922,
     "nextChapter": {
       "url": "https://magicemperor.online/manga/magic-emperor-chapter-901/",
       "number": 901
@@ -166,38 +208,47 @@
       "url": "https://magicemperor.online/manga/magic-emperor-chapter-899/",
       "number": 899
     },
-    "customOrder": 9
+    "customOrder": -7,
+    "lastChapter": 924,
+    "updateDay": 6,
+    "isHiatus": false
   },
   {
     "id": 1792536798916,
     "title": "The Glutton",
     "urlTemplate": "https://www.mgeko.cc/reader/en/cenv-the-glutton-chapter-{chapter}-eng-li/",
     "currentChapter": 45,
-    "updatedAt": 1792544362,
+    "updatedAt": 1792630525,
     "nextChapter": {
-      "url": "https://www.mgeko.cc/reader/en/cenv-the-glutton-chapter-46-eng-li/",
-      "number": 46
+      "url": "https://www.mgeko.cc/reader/en/duif-tomb-raider-king-end-line-2-chapter-23-eng-li/",
+      "number": 23
     },
     "prevChapter": {
-      "url": "https://www.mgeko.cc/reader/en/cenv-the-glutton-chapter-44-eng-li/",
-      "number": 44
+      "url": "https://www.mgeko.cc/reader/en/duif-tomb-raider-king-end-line-2-chapter-21-eng-li/",
+      "number": 21
     },
-    "customOrder": 1
+    "customOrder": 1,
+    "lastChapter": 53,
+    "updateDay": 4,
+    "isHiatus": false
   },
   {
     "id": 1792536850946,
     "title": "Tomb Raiders King End Line",
     "urlTemplate": "https://www.mgeko.cc/reader/en/duif-tomb-raider-king-end-line-2-chapter-{chapter}-eng-li/#",
     "currentChapter": 22,
-    "updatedAt": 1792536850,
-    "customOrder": 5
+    "updatedAt": 1792630592,
+    "customOrder": -3,
+    "lastChapter": 30,
+    "updateDay": 3,
+    "isHiatus": false
   },
   {
     "id": 1792537028351,
     "title": "Leveling Up With The Gods",
     "urlTemplate": "https://w14.levelingwithgods.com/manga/leveling-with-the-gods-chapter-{chapter}/",
     "currentChapter": 169,
-    "updatedAt": 1792544319,
+    "updatedAt": 1792631035,
     "nextChapter": {
       "url": "https://w17.levelingwithgods.com/manga/leveling-with-the-gods-chapter-168/",
       "number": 168
@@ -206,6 +257,8 @@
       "url": "https://w17.levelingwithgods.com/manga/leveling-with-the-gods-chapter-170/",
       "number": 170
     },
-    "customOrder": 11
+    "customOrder": -9,
+    "lastChapter": 169,
+    "isHiatus": true
   }
 ]
