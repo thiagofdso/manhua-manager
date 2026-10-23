@@ -1865,8 +1865,9 @@
         titleSpan.style.overflow = 'hidden';
         titleSpan.style.textOverflow = 'ellipsis';
 
+        const domainPrefix = item.domainName ? `[${item.domainName}] ` : '';
         const chSpan = document.createElement('div');
-        chSpan.textContent = item.lastChapter != null ? `Último: Cap. ${item.lastChapter}` : 'Sem capítulos';
+        chSpan.textContent = item.lastChapter != null ? `${domainPrefix}Último: Cap. ${item.lastChapter}` : `${domainPrefix}Sem capítulos`;
         chSpan.style.fontSize = '0.78rem';
         chSpan.style.color = 'var(--muted)';
 
