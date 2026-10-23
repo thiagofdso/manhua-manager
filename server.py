@@ -13,6 +13,7 @@ import mangafire_provider
 import comix_provider
 import manhuaus_provider
 from importers.registry import get_registered_domains, get_importer
+import telemetry
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(BASE_DIR, "database.json")
@@ -21,31 +22,73 @@ NOTIFICATIONS_FILE = os.path.join(BASE_DIR, "notifications.json")
 app = Flask(__name__, static_folder=BASE_DIR)
 CORS(app)
 
+@app.before_request
+def _telemetry_before_request():
+    req_id = request.headers.get("X-Request-ID")
+    telemetry.set_request_id(req_id)
+    benchmark_id = request.headers.get("X-Benchmark-Run-ID")
+    if benchmark_id:
+        telemetry.set_benchmark_run_id(benchmark_id)
+
+    rule = request.url_rule.rule if request.url_rule else request.path
+    s = telemetry.span("http.server.request", route=rule, method=request.method)
+    s.__enter__()
+    request._telemetry_span = s
+
+@app.after_request
+def _telemetry_after_request(response):
+    s = getattr(request, "_telemetry_span", None)
+    if s:
+        s.http_status = response.status_code
+    return response
+
+@app.teardown_request
+def _telemetry_teardown_request(exc=None):
+    s = getattr(request, "_telemetry_span", None)
+    if s:
+        request._telemetry_span = None
+        if exc:
+            s.outcome = "error"
+            s.error_type = exc.__class__.__name__
+        s.__exit__(type(exc) if exc else None, exc, None)
+
 def load_data():
-    if not os.path.exists(DB_FILE):
-        return []
-    try:
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
+    with telemetry.span("storage.read", file="database.json") as s:
+        if not os.path.exists(DB_FILE):
+            s.set_attribute("item_count", 0)
+            return []
+        try:
+            with open(DB_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                s.set_attribute("item_count", len(data) if isinstance(data, list) else 0)
+                return data
+        except Exception:
+            return []
 
 def save_data(data):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with telemetry.span("storage.write", file="database.json") as s:
+        s.set_attribute("item_count", len(data) if isinstance(data, list) else 0)
+        with open(DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
 def load_notifications():
-    if not os.path.exists(NOTIFICATIONS_FILE):
-        return []
-    try:
-        with open(NOTIFICATIONS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
+    with telemetry.span("storage.read", file="notifications.json") as s:
+        if not os.path.exists(NOTIFICATIONS_FILE):
+            s.set_attribute("item_count", 0)
+            return []
+        try:
+            with open(NOTIFICATIONS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                s.set_attribute("item_count", len(data) if isinstance(data, list) else 0)
+                return data
+        except Exception:
+            return []
 
 def save_notifications(data):
-    with open(NOTIFICATIONS_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with telemetry.span("storage.write", file="notifications.json") as s:
+        s.set_attribute("item_count", len(data) if isinstance(data, list) else 0)
+        with open(NOTIFICATIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
 def add_notification(manhua_id: int, title: str, chapter: int) -> dict:
     notifs = load_notifications()

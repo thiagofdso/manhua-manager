@@ -81,13 +81,20 @@ class Span:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        if getattr(self, "_exited", False):
+            return False
+        self._exited = True
         duration_ns = time.perf_counter_ns() - self.start_ns
         self.duration_ms = round(duration_ns / 1_000_000, 3)
         if exc_type is not None:
             self.outcome = "error"
             self.error_type = exc_type.__name__
         if self._token:
-            _current_span_id.reset(self._token)
+            try:
+                _current_span_id.reset(self._token)
+            except RuntimeError:
+                pass
+            self._token = None
         _emit_span(self)
         return False
 
