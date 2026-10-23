@@ -354,7 +354,9 @@ class _ImportManhuaScreenState extends State<ImportManhuaScreen> {
                                       ),
                                     ),
                                     subtitle: Text(
-                                      item.lastChapter != null ? 'Cap. ${item.lastChapter}' : 'Sem capítulos',
+                                      (item.domainName != null && item.domainName!.isNotEmpty)
+                                          ? '${item.domainName} • ${item.lastChapter != null ? 'Cap. ${item.lastChapter}' : 'Sem capítulos'}'
+                                          : (item.lastChapter != null ? 'Cap. ${item.lastChapter}' : 'Sem capítulos'),
                                       style: const TextStyle(color: Colors.grey, fontSize: 12),
                                     ),
                                     trailing: item.alreadyExists

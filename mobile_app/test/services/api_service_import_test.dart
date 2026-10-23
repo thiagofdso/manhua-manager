@@ -40,7 +40,9 @@ void main() {
                 "title": "Solo Comic",
                 "urlTemplate": "https://asurascans.com/comics/solo/chapter/{chapter}",
                 "lastChapter": 40,
-                "alreadyExists": false
+                "alreadyExists": false,
+                "domain": "asurascans.com",
+                "domainName": "Asura Scans"
               },
               {
                 "title": "Existing Comic",
@@ -60,6 +62,8 @@ void main() {
       expect(result.totalPages, 4);
       expect(result.items.length, 2);
       expect(result.items[0].alreadyExists, false);
+      expect(result.items[0].domain, 'asurascans.com');
+      expect(result.items[0].domainName, 'Asura Scans');
       expect(result.items[1].alreadyExists, true);
     });
 

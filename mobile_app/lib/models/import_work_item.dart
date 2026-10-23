@@ -3,12 +3,16 @@ class ImportWorkItem {
   final String urlTemplate;
   final int? lastChapter;
   final bool alreadyExists;
+  final String? domain;
+  final String? domainName;
 
   ImportWorkItem({
     required this.title,
     required this.urlTemplate,
     this.lastChapter,
     required this.alreadyExists,
+    this.domain,
+    this.domainName,
   });
 
   factory ImportWorkItem.fromJson(Map<String, dynamic> json) {
@@ -17,6 +21,8 @@ class ImportWorkItem {
       urlTemplate: json['urlTemplate'] ?? '',
       lastChapter: json['lastChapter'] != null ? (json['lastChapter'] as num).toInt() : null,
       alreadyExists: json['alreadyExists'] ?? false,
+      domain: json['domain'] as String?,
+      domainName: json['domainName'] as String?,
     );
   }
 
@@ -25,6 +31,8 @@ class ImportWorkItem {
       'title': title,
       'urlTemplate': urlTemplate,
       if (lastChapter != null) 'lastChapter': lastChapter,
+      if (domain != null) 'domain': domain,
+      if (domainName != null) 'domainName': domainName,
     };
   }
 }

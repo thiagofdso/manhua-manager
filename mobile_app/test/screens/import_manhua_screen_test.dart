@@ -21,7 +21,7 @@ class FakeApiService extends Fake implements ApiService {
       page: 1,
       totalPages: 1,
       items: [
-        ImportWorkItem(title: 'Solo Comic', urlTemplate: 'solo_url', lastChapter: 40, alreadyExists: false),
+        ImportWorkItem(title: 'Solo Comic', urlTemplate: 'solo_url', lastChapter: 40, alreadyExists: false, domainName: 'Asura Scans'),
         ImportWorkItem(title: 'Existing Comic', urlTemplate: 'exist_url', lastChapter: 100, alreadyExists: true),
       ],
     );
@@ -55,8 +55,9 @@ void main() {
 
     // Check items displayed in compact list
     expect(find.text('Solo Comic'), findsOneWidget);
-    expect(find.text('Cap. 40'), findsOneWidget);
+    expect(find.text('Asura Scans • Cap. 40'), findsOneWidget);
     expect(find.text('Existing Comic'), findsOneWidget);
+    expect(find.text('Cap. 100'), findsOneWidget);
     expect(find.text('Já cadastrada'), findsOneWidget);
 
     // Check Select All
