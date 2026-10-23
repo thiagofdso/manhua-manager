@@ -4,6 +4,7 @@ import time
 from unittest.mock import patch, MagicMock
 from importers.registry import get_registered_domains, get_importer
 from importers.asurascans import AsurascansImporter
+from importers.ravenscans import RavenscansImporter
 
 def test_registry_lists_domains():
     domains = get_registered_domains()
@@ -11,6 +12,11 @@ def test_registry_lists_domains():
     assert asura is not None
     assert asura["supported"] is True
     assert asura["name"] == "Asura Scans"
+
+    raven = next((d for d in domains if d["domain"] == "ravenscans.org"), None)
+    assert raven is not None
+    assert raven["supported"] is True
+    assert raven["name"] == "RavenScans"
 
     unsupported = next((d for d in domains if d["domain"] == "mangafire.to"), None)
     assert unsupported is not None
@@ -66,4 +72,58 @@ def test_asurascans_cache_ttl(tmp_path):
     with open(cache_file, "w") as f:
         json.dump(old_data, f)
 
+    assert importer._is_cache_valid() is True
+
+def test_ravenscans_parsing():
+    sample_html = """
+    <div class="listupd">
+      <div class="bsx">
+        <a href="https://ravenscans.org/manga/nano-machine/" title="Nano Machine">
+          <div class="tt">Nano Machine</div>
+          <div class="epxs">Chapter 335</div>
+        </a>
+      </div>
+      <div class="bsx">
+        <a href="https://ravenscans.org/manga/our-strange-surrogate/" title="Our Strange Surrogate">
+          <div class="tt">Our Strange Surrogate &amp; Co</div>
+          <div class="epxs">Ch. 7</div>
+        </a>
+      </div>
+    </div>
+    <div class="pagination">
+      <span aria-current="page" class="page-numbers current">1</span>
+      <a class="page-numbers" href="/manga/?order=update&#038;page=2">2</a>
+      <span class="page-numbers dots">&hellip;</span>
+      <a class="page-numbers" href="/manga/?order=update&#038;page=137">137</a>
+    </div>
+    """
+    importer = RavenscansImporter()
+    items, total_pages = importer._parse_html(sample_html)
+    assert len(items) == 2
+    assert items[0]["title"] == "Nano Machine"
+    assert items[0]["urlTemplate"] == "https://ravenscans.org/nano-machine-chapter-{chapter}/"
+    assert items[0]["lastChapter"] == 335
+
+    assert items[1]["title"] == "Our Strange Surrogate & Co"
+    assert items[1]["urlTemplate"] == "https://ravenscans.org/our-strange-surrogate-chapter-{chapter}/"
+    assert items[1]["lastChapter"] == 7
+
+    assert total_pages == 137
+
+def test_ravenscans_cache_ttl(tmp_path):
+    cache_file = tmp_path / "import_cache_ravenscans_org.json"
+    importer = RavenscansImporter(cache_file=str(cache_file))
+
+    # Expired cache
+    old_time = time.time() - (8 * 86400)
+    old_data = {"timestamp": old_time, "catalog": {}, "totalPages": {}}
+    with open(cache_file, "w") as f:
+        json.dump(old_data, f)
+    assert importer._is_cache_valid() is False
+
+    # Valid cache
+    valid_time = time.time() - (3 * 86400)
+    old_data["timestamp"] = valid_time
+    with open(cache_file, "w") as f:
+        json.dump(old_data, f)
     assert importer._is_cache_valid() is True

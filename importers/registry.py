@@ -1,14 +1,15 @@
 from typing import Optional
 from importers.base import BaseDomainImporter
 from importers.asurascans import AsurascansImporter
+from importers.ravenscans import RavenscansImporter
 
 DOMAINS_CATALOG = [
     {"domain": "asurascans.com", "name": "Asura Scans", "supported": True},
+    {"domain": "ravenscans.org", "name": "RavenScans", "supported": True},
     {"domain": "mangafire.to", "name": "MangaFire", "supported": False},
     {"domain": "comix.to", "name": "Comix", "supported": False},
     {"domain": "manhuaus.com", "name": "ManhuaUS", "supported": False},
     {"domain": "manhuatop.org", "name": "ManhuaTop", "supported": False},
-    {"domain": "ravenscans.org", "name": "RavenScans", "supported": False},
     {"domain": "arenascan.com", "name": "ArenaScan", "supported": False},
     {"domain": "mgeko.cc", "name": "MGeko", "supported": False},
     {"domain": "levelingwithgods.com", "name": "Leveling with Gods", "supported": False},
@@ -17,7 +18,8 @@ DOMAINS_CATALOG = [
 ]
 
 _IMPORTERS = {
-    "asurascans.com": AsurascansImporter()
+    "asurascans.com": AsurascansImporter(),
+    "ravenscans.org": RavenscansImporter()
 }
 
 def get_registered_domains() -> list[dict]:
