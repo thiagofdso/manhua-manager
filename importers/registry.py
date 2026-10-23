@@ -7,6 +7,7 @@ from importers.manhuaus import ManhuausImporter
 from importers.arenascan import ArenascanImporter
 from importers.manhuatop import ManhuatopImporter
 from importers.mgeko import MgekoImporter
+from importers.mangak import MangakImporter
 
 DOMAINS_CATALOG = [
     {"domain": "asurascans.com", "name": "Asura Scans", "supported": True},
@@ -16,6 +17,7 @@ DOMAINS_CATALOG = [
     {"domain": "arenascan.com", "name": "ArenaScan", "supported": True},
     {"domain": "manhuatop.org", "name": "ManhuaTop", "supported": True},
     {"domain": "mgeko.cc", "name": "MGeko", "supported": True},
+    {"domain": "mangak.io", "name": "MangaK", "supported": True},
     {"domain": "mangafire.to", "name": "MangaFire", "supported": False},
     {"domain": "levelingwithgods.com", "name": "Leveling with Gods", "supported": False},
     {"domain": "pickmeupgacha.com", "name": "Pick Me Up Gacha", "supported": False},
@@ -30,6 +32,7 @@ _IMPORTERS = {
     "arenascan.com": ArenascanImporter(),
     "manhuatop.org": ManhuatopImporter(),
     "mgeko.cc": MgekoImporter(),
+    "mangak.io": MangakImporter(),
 }
 
 def get_registered_domains() -> list[dict]:

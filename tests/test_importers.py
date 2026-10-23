@@ -10,6 +10,7 @@ from importers.manhuaus import ManhuausImporter
 from importers.arenascan import ArenascanImporter
 from importers.manhuatop import ManhuatopImporter
 from importers.mgeko import MgekoImporter
+from importers.mangak import MangakImporter
 
 def test_registry_lists_domains():
     domains = get_registered_domains()
@@ -48,8 +49,13 @@ def test_registry_lists_domains():
     assert mgeko["supported"] is True
     assert mgeko["name"] == "MGeko"
 
-    importer = get_importer("mgeko.cc")
-    assert isinstance(importer, MgekoImporter)
+    mangak = next((d for d in domains if d["domain"] == "mangak.io"), None)
+    assert mangak is not None
+    assert mangak["supported"] is True
+    assert mangak["name"] == "MangaK"
+
+    importer = get_importer("mangak.io")
+    assert isinstance(importer, MangakImporter)
 
     unsupported = next((d for d in domains if d["domain"] == "mangafire.to"), None)
     assert unsupported is not None
@@ -471,6 +477,62 @@ def test_mgeko_parsing_and_details():
     assert items[0]["title"] == "The Glutton"
     assert items[0]["urlTemplate"] == "https://www.mgeko.cc/reader/en/cenv-the-glutton-chapter-{chapter}-eng-li/"
     assert items[0]["lastChapter"] == 53
+
+def test_mangak_cache_ttl(tmp_path):
+    cache_file = tmp_path / "import_cache_mangak_io.json"
+    importer = MangakImporter(cache_file=str(cache_file))
+
+    # Expired cache (8 days)
+    old_time = time.time() - (8 * 86400)
+    old_data = {"timestamp": old_time, "catalog": {}, "totalPages": {}}
+    with open(cache_file, "w") as f:
+        json.dump(old_data, f)
+    assert importer._is_cache_valid() is False
+
+    # Valid cache (3 days)
+    valid_time = time.time() - (3 * 86400)
+    old_data["timestamp"] = valid_time
+    with open(cache_file, "w") as f:
+        json.dump(old_data, f)
+    assert importer._is_cache_valid() is True
+
+def test_mangak_parsing():
+    sample_data = {
+        "props": {
+            "pageProps": {
+                "items": [
+                    {
+                        "name": "The New Employee Chairman Kang",
+                        "slug": "the-new-employee-chairman-kang",
+                        "latestChapters": [
+                            {"name": "Chapter 92", "url": "/the-new-employee-chairman-kang/chapter-92"}
+                        ]
+                    }
+                ],
+                "pagination": {
+                    "total": 10000,
+                    "page": 1,
+                    "total_pages": 416
+                }
+            }
+        }
+    }
+    sample_html = f"""
+    <html>
+      <head>
+        <script id="__NEXT_DATA__" type="application/json">{json.dumps(sample_data)}</script>
+      </head>
+      <body></body>
+    </html>
+    """
+    importer = MangakImporter()
+    items, total_pages = importer._parse_next_data(sample_html)
+    assert len(items) == 1
+    assert items[0]["title"] == "The New Employee Chairman Kang"
+    assert items[0]["urlTemplate"] == "https://mangak.io/the-new-employee-chairman-kang/chapter-{chapter}"
+    assert items[0]["lastChapter"] == 92
+    assert total_pages == 416
+
 
 
 
