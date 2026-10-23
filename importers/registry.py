@@ -9,8 +9,10 @@ from importers.manhuatop import ManhuatopImporter
 from importers.mgeko import MgekoImporter
 from importers.mangak import MangakImporter
 from importers.mangafire import MangafireImporter
+from importers.all_cache import AllCacheImporter
 
 DOMAINS_CATALOG = [
+    {"domain": "all", "name": "Todos", "supported": True},
     {"domain": "asurascans.com", "name": "Asura Scans", "supported": True},
     {"domain": "ravenscans.org", "name": "RavenScans", "supported": True},
     {"domain": "comix.to", "name": "Comix", "supported": True},
@@ -26,6 +28,7 @@ DOMAINS_CATALOG = [
 ]
 
 _IMPORTERS = {
+    "all": AllCacheImporter(),
     "asurascans.com": AsurascansImporter(),
     "ravenscans.org": RavenscansImporter(),
     "comix.to": ComixImporter(),

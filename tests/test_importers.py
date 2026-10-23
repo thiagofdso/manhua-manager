@@ -12,9 +12,18 @@ from importers.manhuatop import ManhuatopImporter
 from importers.mgeko import MgekoImporter
 from importers.mangak import MangakImporter
 from importers.mangafire import MangafireImporter
+from importers.all_cache import AllCacheImporter
 
 def test_registry_lists_domains():
     domains = get_registered_domains()
+    all_dom = next((d for d in domains if d["domain"] == "all"), None)
+    assert all_dom is not None
+    assert all_dom["supported"] is True
+    assert all_dom["name"] == "Todos"
+
+    importer_all = get_importer("all")
+    assert isinstance(importer_all, AllCacheImporter)
+
     asura = next((d for d in domains if d["domain"] == "asurascans.com"), None)
     assert asura is not None
     assert asura["supported"] is True
@@ -645,6 +654,57 @@ def test_mangafire_search_or_browse(tmp_path):
         cached_res = importer.search_or_browse(query=None, page=1)
     assert len(cached_res["items"]) == 1
     assert cached_res["items"][0]["title"] == "Test MangaFire Work"
+
+
+def test_all_cache_importer_aggregates_caches(tmp_path):
+    from importers.all_cache import AllCacheImporter
+
+    # Cache 1: asurascans
+    c1 = {
+        "timestamp": time.time(),
+        "catalog": {
+            "": {"1": [
+                {"title": "Solo Necromancer", "urlTemplate": "https://asurascans.com/comics/solo-necromancer/chapter/{chapter}", "lastChapter": 100},
+                {"title": "Reaper of the Drifting Moon", "urlTemplate": "https://asurascans.com/comics/reaper/chapter/{chapter}", "lastChapter": 50}
+            ]},
+            "solo": {"1": [
+                {"title": "Solo Necromancer", "urlTemplate": "https://asurascans.com/comics/solo-necromancer/chapter/{chapter}", "lastChapter": 100}
+            ]}
+        }
+    }
+    with open(tmp_path / "import_cache_asurascans_com.json", "w") as f:
+        json.dump(c1, f)
+
+    # Cache 2: mangafire
+    c2 = {
+        "timestamp": time.time(),
+        "catalog": {
+            "": {"1": [
+                {"title": "Solo Leveling", "urlTemplate": "https://mangafire.to/title/solo-leveling/chapter/{chapter}", "lastChapter": 200}
+            ]}
+        }
+    }
+    with open(tmp_path / "import_cache_mangafire_to.json", "w") as f:
+        json.dump(c2, f)
+
+    importer = AllCacheImporter(cache_dir=str(tmp_path))
+
+    # Test browse all (no query)
+    res_all = importer.search_or_browse(query=None, page=1)
+    assert len(res_all["items"]) == 3
+    assert res_all["totalPages"] == 1
+    # Check domain identification
+    domains = {it["domainName"] for it in res_all["items"]}
+    assert "Asura Scans" in domains
+    assert "MangaFire" in domains
+
+    # Test search query "solo" (should match Solo Necromancer and Solo Leveling, deduplicated)
+    res_solo = importer.search_or_browse(query="solo", page=1)
+    assert len(res_solo["items"]) == 2
+    titles = [it["title"] for it in res_solo["items"]]
+    assert "Solo Leveling" in titles
+    assert "Solo Necromancer" in titles
+
 
 
 
