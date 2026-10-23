@@ -8,3 +8,11 @@ __pycache__/
 server.log
 *.apk
 mobile_app/build/
+
+# Telemetria e Benchmarks
+telemetry/events/
+telemetry/runs/
+telemetry/backups/
+telemetry/*.sqlite3
+telemetry/*.sqlite3-wal
+telemetry/*.sqlite3-shm
