@@ -12,6 +12,7 @@ from flask_cors import CORS
 import mangafire_provider
 import comix_provider
 import manhuaus_provider
+from importers.registry import get_registered_domains, get_importer
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(BASE_DIR, "database.json")
@@ -97,6 +98,131 @@ def sort_manhuas(data):
 def get_manhuas():
     data = load_data()
     return jsonify(sort_manhuas(data))
+
+@app.route("/api/import/domains", methods=["GET"])
+def get_import_domains():
+    return jsonify(get_registered_domains())
+
+@app.route("/api/import/browse", methods=["GET"])
+def browse_import():
+    domain = request.args.get("domain", "").strip()
+    query = request.args.get("q", "").strip() or None
+    try:
+        page = int(request.args.get("page", 1))
+    except (ValueError, TypeError):
+        page = 1
+
+    importer = get_importer(domain)
+    if not importer:
+        return jsonify({"error": f"Domínio '{domain}' não suportado para importação"}), 400
+
+    try:
+        data = importer.search_or_browse(query=query, page=page)
+        db_data = load_data()
+
+        # Build duplicate lookup sets
+        existing_urls = {
+            m.get("urlTemplate", "").lower().strip()
+            for m in db_data if m.get("urlTemplate")
+        }
+        existing_titles = {
+            m.get("title", "").lower().strip()
+            for m in db_data if m.get("title")
+        }
+
+        # Annotate items with alreadyExists
+        annotated_items = []
+        for item in data.get("items", []):
+            url_tmpl = item.get("urlTemplate", "").lower().strip()
+            title = item.get("title", "").lower().strip()
+            already_exists = (url_tmpl in existing_urls) or (title in existing_titles)
+
+            annotated_items.append({
+                "title": item["title"],
+                "urlTemplate": item["urlTemplate"],
+                "lastChapter": item.get("lastChapter"),
+                "alreadyExists": already_exists
+            })
+
+        return jsonify({
+            "status": "ok",
+            "domain": domain,
+            "page": data.get("page", page),
+            "totalPages": data.get("totalPages", 1),
+            "items": annotated_items
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/import", methods=["POST"])
+def import_works():
+    payload = request.get_json() or {}
+    items = payload.get("items", [])
+    if not isinstance(items, list) or not items:
+        return jsonify({"error": "Nenhum item fornecido para importação"}), 400
+
+    data = load_data()
+    existing_urls = {
+        m.get("urlTemplate", "").lower().strip()
+        for m in data if m.get("urlTemplate")
+    }
+    existing_titles = {
+        m.get("title", "").lower().strip()
+        for m in data if m.get("title")
+    }
+
+    group_orders = [m.get("customOrder", 0) for m in data if not bool(m.get("isFavorite", False))]
+    min_order = min(group_orders) if group_orders else 0
+
+    imported_count = 0
+    skipped_count = 0
+
+    for item in items:
+        title = item.get("title", "").strip()
+        url_template = item.get("urlTemplate", "").strip()
+        last_chapter = item.get("lastChapter")
+
+        if not title or not url_template:
+            continue
+
+        norm_url = url_template.lower().strip()
+        norm_title = title.lower().strip()
+
+        if norm_url in existing_urls or norm_title in existing_titles:
+            skipped_count += 1
+            continue
+
+        min_order -= 1
+        new_manhua = {
+            "id": int(time.time() * 1000) + imported_count,
+            "title": title,
+            "urlTemplate": url_template,
+            "currentChapter": 1,
+            "updatedAt": int(time.time()),
+            "isFavorite": False,
+            "customOrder": min_order,
+            "isHiatus": False,
+            "updateDay": 6  # Domingo
+        }
+        if last_chapter is not None:
+            try:
+                new_manhua["lastChapter"] = int(last_chapter)
+            except (ValueError, TypeError):
+                pass
+
+        data.append(new_manhua)
+        existing_urls.add(norm_url)
+        existing_titles.add(norm_title)
+        imported_count += 1
+
+    if imported_count > 0:
+        save_data(data)
+
+    return jsonify({
+        "status": "ok",
+        "imported": imported_count,
+        "skipped": skipped_count
+    })
 
 @app.route("/api/manhuas", methods=["POST"])
 def add_manhua():
