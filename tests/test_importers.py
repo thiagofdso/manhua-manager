@@ -11,6 +11,7 @@ from importers.arenascan import ArenascanImporter
 from importers.manhuatop import ManhuatopImporter
 from importers.mgeko import MgekoImporter
 from importers.mangak import MangakImporter
+from importers.mangafire import MangafireImporter
 
 def test_registry_lists_domains():
     domains = get_registered_domains()
@@ -57,7 +58,15 @@ def test_registry_lists_domains():
     importer = get_importer("mangak.io")
     assert isinstance(importer, MangakImporter)
 
-    unsupported = next((d for d in domains if d["domain"] == "mangafire.to"), None)
+    mangafire = next((d for d in domains if d["domain"] == "mangafire.to"), None)
+    assert mangafire is not None
+    assert mangafire["supported"] is True
+    assert mangafire["name"] == "MangaFire"
+
+    importer_mf = get_importer("mangafire.to")
+    assert isinstance(importer_mf, MangafireImporter)
+
+    unsupported = next((d for d in domains if d["domain"] == "levelingwithgods.com"), None)
     assert unsupported is not None
     assert unsupported["supported"] is False
 
@@ -532,6 +541,111 @@ def test_mangak_parsing():
     assert items[0]["urlTemplate"] == "https://mangak.io/the-new-employee-chairman-kang/chapter-{chapter}"
     assert items[0]["lastChapter"] == 92
     assert total_pages == 416
+
+
+def test_mangafire_cache_ttl(tmp_path):
+    cache_file = tmp_path / "import_cache_mangafire_to.json"
+    importer = MangafireImporter(cache_file=str(cache_file))
+
+    # Expired cache (8 days)
+    old_time = time.time() - (8 * 86400)
+    old_data = {"timestamp": old_time, "catalog": {}, "totalPages": {}}
+    with open(cache_file, "w") as f:
+        json.dump(old_data, f)
+    assert importer._is_cache_valid() is False
+
+    # Valid cache (3 days)
+    valid_time = time.time() - (3 * 86400)
+    old_data["timestamp"] = valid_time
+    with open(cache_file, "w") as f:
+        json.dump(old_data, f)
+    assert importer._is_cache_valid() is True
+
+
+def test_mangafire_parsing():
+    sample_data = {
+        "items": [
+            {
+                "id": 101,
+                "hid": "nk6zl",
+                "slug": "nk6zl-necromancer-the-ultimate-scourge",
+                "title": "Necromancer the &amp; Ultimate Scourge",
+                "latestChapter": 315,
+                "url": "/title/nk6zl-necromancer-the-ultimate-scourge"
+            },
+            {
+                "id": 102,
+                "hid": "abcde",
+                "slug": "solo-leveling",
+                "name": "Solo Leveling",
+                "latest_chapter": "200.5",
+                "url": "/title/abcde-solo-leveling"
+            }
+        ],
+        "meta": {
+            "total": 9964,
+            "perPage": 40,
+            "page": 1,
+            "lastPage": 247,
+            "hasNext": True
+        }
+    }
+    importer = MangafireImporter()
+    items, total_pages = importer._parse_items(sample_data)
+    assert len(items) == 2
+    assert items[0]["title"] == "Necromancer the & Ultimate Scourge"
+    assert items[0]["urlTemplate"] == "https://mangafire.to/title/nk6zl-necromancer-the-ultimate-scourge/chapter/{chapter}"
+    assert items[0]["lastChapter"] == 315
+
+    assert items[1]["title"] == "Solo Leveling"
+    assert items[1]["urlTemplate"] == "https://mangafire.to/title/abcde-solo-leveling/chapter/{chapter}"
+    assert items[1]["lastChapter"] == 200.5
+
+    assert total_pages == 247
+
+
+def test_mangafire_search_or_browse(tmp_path):
+    cache_file = tmp_path / "import_cache_mangafire_to.json"
+    importer = MangafireImporter(cache_file=str(cache_file))
+
+    fake_api_response = {
+        "items": [
+            {
+                "title": "Test MangaFire Work",
+                "url": "/title/t123-test-mf-work",
+                "latestChapter": 50
+            }
+        ],
+        "meta": {
+            "lastPage": 247
+        }
+    }
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = fake_api_response
+
+    with patch("mangafire_provider.generate_vrf_for_config", return_value="fake_vrf_token"):
+        with patch("requests.get", return_value=mock_resp):
+            res = importer.search_or_browse(query=None, page=1)
+
+    assert len(res["items"]) == 1
+    assert res["items"][0]["title"] == "Test MangaFire Work"
+    assert res["items"][0]["urlTemplate"] == "https://mangafire.to/title/t123-test-mf-work/chapter/{chapter}"
+    assert res["items"][0]["lastChapter"] == 50
+    assert res["page"] == 1
+    assert res["totalPages"] == 247
+
+    # Cache should now be written and valid
+    assert os.path.exists(cache_file)
+    assert importer._is_cache_valid() is True
+
+    # Next call uses cache without calling requests.get
+    with patch("requests.get", side_effect=Exception("Should not be called")):
+        cached_res = importer.search_or_browse(query=None, page=1)
+    assert len(cached_res["items"]) == 1
+    assert cached_res["items"][0]["title"] == "Test MangaFire Work"
+
 
 
 
