@@ -26,3 +26,12 @@ def test_web_index_contains_download_last_chapter_validation():
     assert "m.lastChapter != null" in html
     assert "ultrapassar o último episódio disponível" in html
 
+def test_import_elements_in_html():
+    with open("index.html", "r", encoding="utf-8") as f:
+        content = f.read()
+    assert "openImportModal()" in content
+    assert 'id="importModal"' in content
+    assert 'id="importDomainSelect"' in content
+    assert 'id="importSelectAll"' in content
+    assert 'id="btnConfirmImport"' in content
+

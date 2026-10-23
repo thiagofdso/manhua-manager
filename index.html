@@ -210,6 +210,7 @@
             📥 Baixando (<span id="activeDownloadsCount">0</span>)
           </button>
           <button class="btn btn-secondary btn-sm" onclick="openStorageModal()" title="Gerenciar armazenamento offline">💾 Offline</button>
+          <button class="btn btn-secondary btn-sm" onclick="openImportModal()" title="Importar obras por domínio">📥 Importar Obras</button>
           <button class="btn btn-secondary btn-sm" onclick="toggleForm()">+ Novo</button>
         </div>
       </header>
@@ -465,6 +466,66 @@
         <button class="action-btn" onclick="closeActiveDownloadsModal()">✕</button>
       </div>
       <div id="activeDownloadsContainer"></div>
+    </div>
+  </div>
+
+  <!-- MODAL DE IMPORTAÇÃO DE OBRAS -->
+  <div id="importModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 650px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h2>📥 Importar Obras</h2>
+        <button class="action-btn" onclick="closeImportModal()">✕</button>
+      </div>
+
+      <!-- Seletor de Domínio -->
+      <div style="margin-bottom: 12px;">
+        <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <span>Domínio da Fonte:</span>
+          <span id="importDomainSupportBadge" class="badge" style="background: rgba(39,201,63,0.2); color: #27c93f;">Suportado</span>
+        </label>
+        <select id="importDomainSelect" onchange="onImportDomainChange()" style="width: 100%; padding: 10px; background: #202024; border: 1px solid var(--card-border); color: #fff; border-radius: 6px;">
+        </select>
+      </div>
+
+      <!-- Barra de Busca -->
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <input type="text" id="importSearchInput" placeholder="Pesquisar por nome (opcional)..." style="flex: 1; margin-bottom: 0;" onkeydown="if(event.key==='Enter') searchImportWorks(1)" />
+        <button id="btnSearchImport" class="btn btn-secondary" onclick="searchImportWorks(1)">Pesquisar</button>
+      </div>
+
+      <!-- Barra de Ações em Lote -->
+      <div id="importBulkBar" style="display: none; justify-content: space-between; align-items: center; padding: 8px 12px; background: #202024; border-radius: 6px; margin-bottom: 8px;">
+        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 0; cursor: pointer; font-size: 0.9rem;">
+          <input type="checkbox" id="importSelectAll" onchange="toggleSelectAllImport(this.checked)" style="margin: 0; width: auto;" />
+          <span>Selecionar todos</span>
+        </label>
+        <span id="importSelectedCount" style="color: var(--muted); font-size: 0.85rem;">0 selecionadas</span>
+      </div>
+
+      <!-- Lista de Obras (Scrollável e Compacta) -->
+      <div id="importWorkListContainer" style="flex: 1; overflow-y: auto; min-height: 200px; max-height: 360px; border: 1px solid var(--card-border); border-radius: 6px; padding: 4px; background: #121214;">
+        <div id="importWorkListPlaceholder" style="text-align: center; color: var(--muted); padding: 40px 16px;">
+          Selecione o domínio e clique em <strong>Pesquisar</strong> para carregar as obras.
+        </div>
+        <div id="importWorkListLoading" style="display: none; text-align: center; padding: 40px 16px;">
+          <div class="reader-spinner" style="margin: 0 auto 12px;"></div>
+          <p style="color: var(--muted);">Buscando obras...</p>
+        </div>
+        <div id="importWorkList" style="display: flex; flex-direction: column; gap: 4px;"></div>
+      </div>
+
+      <!-- Paginação -->
+      <div id="importPagination" style="display: none; justify-content: space-between; align-items: center; margin-top: 10px;">
+        <button id="btnImportPrevPage" class="btn btn-secondary btn-sm" onclick="changeImportPage(-1)">◀ Anterior</button>
+        <span id="importPageIndicator" style="font-size: 0.85rem; color: var(--muted);">Página 1 de 1</span>
+        <button id="btnImportNextPage" class="btn btn-secondary btn-sm" onclick="changeImportPage(1)">Próxima ▶</button>
+      </div>
+
+      <!-- Rodapé com Botão de Importação -->
+      <div class="modal-actions" style="margin-top: 14px;">
+        <button class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
+        <button id="btnConfirmImport" class="btn" style="flex: 1;" onclick="submitImportWorks()" disabled>Importar (0)</button>
+      </div>
     </div>
   </div>
 
@@ -1629,6 +1690,302 @@
       closeStorageModal();
     }
 
+    // Gerenciamento do Modal de Importação de Obras
+    let importDomains = [];
+    let currentImportDomain = null;
+    let importCurrentPage = 1;
+    let importTotalPages = 1;
+    let importLoadedItems = [];
+    let importSelectedMap = {};
+
+    async function openImportModal() {
+      const modal = document.getElementById('importModal');
+      modal.classList.add('active');
+      document.getElementById('importSearchInput').value = '';
+      importSelectedMap = {};
+      importLoadedItems = [];
+      updateImportSelectedCounter();
+
+      try {
+        const res = await fetch('/api/import/domains');
+        importDomains = await res.json();
+        const select = document.getElementById('importDomainSelect');
+        select.innerHTML = '';
+        importDomains.forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.domain;
+          opt.textContent = `${d.name} (${d.domain}) ${d.supported ? '✓' : '[Sem suporte]'}`;
+          select.appendChild(opt);
+        });
+
+        const firstSupported = importDomains.find(d => d.supported) || importDomains[0];
+        if (firstSupported) {
+          select.value = firstSupported.domain;
+        }
+        onImportDomainChange();
+      } catch (err) {
+        alert('Erro ao carregar lista de domínios: ' + err.message);
+      }
+    }
+
+    function closeImportModal() {
+      document.getElementById('importModal').classList.remove('active');
+    }
+
+    function onImportDomainChange() {
+      const select = document.getElementById('importDomainSelect');
+      const selectedVal = select.value;
+      currentImportDomain = importDomains.find(d => d.domain === selectedVal);
+
+      const badge = document.getElementById('importDomainSupportBadge');
+      const btnSearch = document.getElementById('btnSearchImport');
+      const placeholder = document.getElementById('importWorkListPlaceholder');
+      const listEl = document.getElementById('importWorkList');
+      const bulkBar = document.getElementById('importBulkBar');
+      const pagination = document.getElementById('importPagination');
+
+      listEl.innerHTML = '';
+      bulkBar.style.display = 'none';
+      pagination.style.display = 'none';
+      importSelectedMap = {};
+      importLoadedItems = [];
+      updateImportSelectedCounter();
+
+      if (currentImportDomain && currentImportDomain.supported) {
+        badge.textContent = 'Suportado';
+        badge.style.background = 'rgba(39,201,63,0.2)';
+        badge.style.color = '#27c93f';
+        btnSearch.disabled = false;
+        placeholder.style.display = 'block';
+        placeholder.innerHTML = 'Clique em <strong>Pesquisar</strong> para carregar as obras deste domínio.';
+      } else {
+        badge.textContent = 'Sem suporte';
+        badge.style.background = 'rgba(229,120,120,0.2)';
+        badge.style.color = '#e57878';
+        btnSearch.disabled = true;
+        placeholder.style.display = 'block';
+        placeholder.innerHTML = '<span style="color: #e57878;">Este domínio ainda não possui suporte implementado para importação de obras.</span>';
+      }
+    }
+
+    async function searchImportWorks(page = 1) {
+      if (!currentImportDomain || !currentImportDomain.supported) return;
+
+      const q = document.getElementById('importSearchInput').value.trim();
+      const placeholder = document.getElementById('importWorkListPlaceholder');
+      const loading = document.getElementById('importWorkListLoading');
+      const listEl = document.getElementById('importWorkList');
+      const bulkBar = document.getElementById('importBulkBar');
+      const selectAll = document.getElementById('importSelectAll');
+
+      placeholder.style.display = 'none';
+      loading.style.display = 'block';
+      listEl.innerHTML = '';
+      selectAll.checked = false;
+
+      try {
+        let url = `/api/import/browse?domain=${encodeURIComponent(currentImportDomain.domain)}&page=${page}`;
+        if (q) url += `&q=${encodeURIComponent(q)}`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+        loading.style.display = 'none';
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Erro ao buscar obras');
+        }
+
+        importCurrentPage = data.page || 1;
+        importTotalPages = data.totalPages || 1;
+        importLoadedItems = data.items || [];
+
+        renderImportWorkList();
+      } catch (err) {
+        loading.style.display = 'none';
+        placeholder.style.display = 'block';
+        placeholder.innerHTML = `<span style="color: #e57878;">Erro: ${err.message}</span>`;
+      }
+    }
+
+    function renderImportWorkList() {
+      const listEl = document.getElementById('importWorkList');
+      const placeholder = document.getElementById('importWorkListPlaceholder');
+      const bulkBar = document.getElementById('importBulkBar');
+      const pagination = document.getElementById('importPagination');
+
+      listEl.innerHTML = '';
+
+      if (importLoadedItems.length === 0) {
+        placeholder.style.display = 'block';
+        placeholder.innerHTML = 'Nenhuma obra encontrada para esta pesquisa.';
+        bulkBar.style.display = 'none';
+        pagination.style.display = 'none';
+        return;
+      }
+
+      placeholder.style.display = 'none';
+      bulkBar.style.display = 'flex';
+
+      importLoadedItems.forEach((item) => {
+        const isSelected = !!importSelectedMap[item.urlTemplate];
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.justifyContent = 'space-between';
+        row.style.padding = '8px 10px';
+        row.style.borderBottom = '1px solid #29292e';
+        row.style.background = item.alreadyExists ? 'rgba(255,255,255,0.02)' : 'transparent';
+        row.style.borderRadius = '4px';
+
+        const left = document.createElement('div');
+        left.style.display = 'flex';
+        left.style.alignItems = 'center';
+        left.style.gap = '10px';
+        left.style.flex = '1';
+        left.style.minWidth = '0';
+
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.style.width = 'auto';
+        chk.style.margin = '0';
+        chk.checked = isSelected && !item.alreadyExists;
+        chk.disabled = item.alreadyExists;
+        chk.onchange = (e) => toggleSelectImportItem(item, e.target.checked);
+
+        const info = document.createElement('div');
+        info.style.overflow = 'hidden';
+        info.style.whiteSpace = 'nowrap';
+        info.style.textOverflow = 'ellipsis';
+
+        const titleSpan = document.createElement('div');
+        titleSpan.textContent = item.title;
+        titleSpan.style.fontSize = '0.92rem';
+        titleSpan.style.fontWeight = '500';
+        titleSpan.style.color = item.alreadyExists ? '#888' : '#fff';
+        titleSpan.style.overflow = 'hidden';
+        titleSpan.style.textOverflow = 'ellipsis';
+
+        const chSpan = document.createElement('div');
+        chSpan.textContent = item.lastChapter != null ? `Último: Cap. ${item.lastChapter}` : 'Sem capítulos';
+        chSpan.style.fontSize = '0.78rem';
+        chSpan.style.color = 'var(--muted)';
+
+        info.appendChild(titleSpan);
+        info.appendChild(chSpan);
+
+        left.appendChild(chk);
+        left.appendChild(info);
+
+        row.appendChild(left);
+
+        if (item.alreadyExists) {
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.style.background = 'rgba(255,255,255,0.1)';
+          badge.style.color = '#aaa';
+          badge.style.fontSize = '0.75rem';
+          badge.textContent = 'Já cadastrada';
+          row.appendChild(badge);
+        }
+
+        listEl.appendChild(row);
+      });
+
+      // Pagination
+      if (importTotalPages > 1) {
+        pagination.style.display = 'flex';
+        document.getElementById('importPageIndicator').textContent = `Página ${importCurrentPage} de ${importTotalPages}`;
+        document.getElementById('btnImportPrevPage').disabled = importCurrentPage <= 1;
+        document.getElementById('btnImportNextPage').disabled = importCurrentPage >= importTotalPages;
+      } else {
+        pagination.style.display = 'none';
+      }
+
+      updateImportSelectAllState();
+      updateImportSelectedCounter();
+    }
+
+    function toggleSelectImportItem(item, checked) {
+      if (item.alreadyExists) return;
+      if (checked) {
+        importSelectedMap[item.urlTemplate] = item;
+      } else {
+        delete importSelectedMap[item.urlTemplate];
+      }
+      updateImportSelectAllState();
+      updateImportSelectedCounter();
+    }
+
+    function toggleSelectAllImport(checked) {
+      importLoadedItems.forEach(item => {
+        if (!item.alreadyExists) {
+          if (checked) {
+            importSelectedMap[item.urlTemplate] = item;
+          } else {
+            delete importSelectedMap[item.urlTemplate];
+          }
+        }
+      });
+      renderImportWorkList();
+    }
+
+    function updateImportSelectAllState() {
+      const selectAll = document.getElementById('importSelectAll');
+      const selectable = importLoadedItems.filter(i => !i.alreadyExists);
+      if (selectable.length === 0) {
+        selectAll.checked = false;
+        selectAll.disabled = true;
+      } else {
+        selectAll.disabled = false;
+        selectAll.checked = selectable.every(i => !!importSelectedMap[i.urlTemplate]);
+      }
+    }
+
+    function updateImportSelectedCounter() {
+      const count = Object.keys(importSelectedMap).length;
+      document.getElementById('importSelectedCount').textContent = `${count} selecionada${count === 1 ? '' : 's'}`;
+      const btn = document.getElementById('btnConfirmImport');
+      btn.textContent = `Importar (${count})`;
+      btn.disabled = count === 0;
+    }
+
+    function changeImportPage(delta) {
+      const newPage = importCurrentPage + delta;
+      if (newPage >= 1 && newPage <= importTotalPages) {
+        searchImportWorks(newPage);
+      }
+    }
+
+    async function submitImportWorks() {
+      const itemsToImport = Object.values(importSelectedMap);
+      if (itemsToImport.length === 0) return;
+
+      const btn = document.getElementById('btnConfirmImport');
+      btn.disabled = true;
+      btn.textContent = 'Importando...';
+
+      try {
+        const res = await fetch('/api/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: itemsToImport })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Erro ao importar obras');
+        }
+
+        alert(`Sucesso: ${data.imported} obra(s) importada(s)! (${data.skipped} ignorada(s) por já existirem)`);
+        importSelectedMap = {};
+        closeImportModal();
+        loadData();
+      } catch (err) {
+        alert('Erro ao importar obras: ' + err.message);
+        btn.disabled = false;
+        updateImportSelectedCounter();
+      }
+    }
+
     // Teclas de navegação e cancelamento
     window.addEventListener('keydown', (e) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
@@ -1636,6 +1993,10 @@
       if (e.key === 'Escape') {
         if (movingItem) {
           cancelMove();
+          return;
+        }
+        if (document.getElementById('importModal').classList.contains('active')) {
+          closeImportModal();
           return;
         }
         if (document.getElementById('notificationModal').classList.contains('active')) {
