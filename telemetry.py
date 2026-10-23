@@ -2,6 +2,10 @@ import os
 import time
 import uuid
 import subprocess
+import atexit
+import json
+import queue
+import threading
 from datetime import datetime, timezone
 from contextvars import ContextVar
 from typing import Any, Dict, Optional
@@ -111,8 +115,108 @@ class Span:
         data.update(self.attributes)
         return data
 
+class TelemetryEngine:
+    def __init__(self, events_dir: str = "telemetry/events", max_queue_size: int = 10000, flush_interval: float = 0.25):
+        self.events_dir = events_dir
+        self.max_queue_size = max_queue_size
+        self.flush_interval = flush_interval
+        self.queue: queue.Queue = queue.Queue(maxsize=max_queue_size)
+        self.dropped_events_count = 0
+        self._lock = threading.Lock()
+        self._running = False
+        self._worker_thread: Optional[threading.Thread] = None
+
+    def start(self):
+        with self._lock:
+            if self._running:
+                return
+            self._running = True
+            os.makedirs(self.events_dir, exist_ok=True)
+            self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True, name="TelemetryWorker")
+            self._worker_thread.start()
+
+    def enqueue(self, event_dict: Dict[str, Any]):
+        if not self._running:
+            return
+        try:
+            self.queue.put_nowait(event_dict)
+        except queue.Full:
+            with self._lock:
+                self.dropped_events_count += 1
+
+    def _worker_loop(self):
+        while self._running or self.queue.unfinished_tasks > 0:
+            try:
+                item = self.queue.get(timeout=self.flush_interval)
+            except queue.Empty:
+                continue
+
+            batch = [item]
+            while len(batch) < 100:
+                try:
+                    batch.append(self.queue.get_nowait())
+                except queue.Empty:
+                    break
+
+            if batch:
+                self._write_batch(batch)
+                for _ in batch:
+                    self.queue.task_done()
+
+    def _write_batch(self, batch: list):
+        try:
+            today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            filename = f"events-{today_str}.jsonl"
+            filepath = os.path.join(self.events_dir, filename)
+            with open(filepath, "a", encoding="utf-8") as f:
+                for item in batch:
+                    f.write(json.dumps(item, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
+
+    def flush(self, timeout: float = 2.0):
+        start = time.time()
+        while self.queue.unfinished_tasks > 0 and (time.time() - start) < timeout:
+            time.sleep(0.01)
+
+    def shutdown(self, timeout: float = 2.0):
+        with self._lock:
+            if not self._running:
+                return
+            self._running = False
+        self.flush(timeout=timeout)
+        if self._worker_thread and self._worker_thread.is_alive():
+            self._worker_thread.join(timeout=timeout)
+
+_engine: Optional[TelemetryEngine] = None
+
+def init_telemetry(events_dir: Optional[str] = None, max_queue_size: int = 10000, flush_interval: float = 0.25):
+    global _engine
+    if _engine is not None:
+        _engine.shutdown()
+    edir = events_dir or os.path.join(os.path.dirname(os.path.abspath(__file__)), "telemetry", "events")
+    _engine = TelemetryEngine(events_dir=edir, max_queue_size=max_queue_size, flush_interval=flush_interval)
+    _engine.start()
+
+def get_dropped_count() -> int:
+    return _engine.dropped_events_count if _engine else 0
+
+def flush(timeout: float = 2.0):
+    if _engine:
+        _engine.flush(timeout=timeout)
+
+def shutdown(timeout: float = 2.0):
+    global _engine
+    if _engine:
+        _engine.shutdown(timeout=timeout)
+        _engine = None
+
 def _emit_span(span: Span):
-    pass
+    if _engine:
+        _engine.enqueue(span.to_dict())
 
 def span(operation: str, route: Optional[str] = None, domain: Optional[str] = None, **kwargs: Any) -> Span:
     return Span(operation=operation, route=route, domain=domain, **kwargs)
+
+atexit.register(shutdown)
+init_telemetry()

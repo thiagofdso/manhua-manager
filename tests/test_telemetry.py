@@ -36,3 +36,48 @@ def test_telemetry_span_exception_capture():
     event = s.to_dict()
     assert event["outcome"] == "error"
     assert event["error_type"] == "ValueError"
+
+import os
+import json
+import tempfile
+import shutil
+
+def test_telemetry_async_queue_and_file_writer():
+    temp_dir = tempfile.mkdtemp()
+    try:
+        telemetry.init_telemetry(events_dir=temp_dir, max_queue_size=100, flush_interval=0.05)
+        
+        with telemetry.span("async.op", route="/test") as s:
+            s.set_attribute("bytes_received", 1024)
+            
+        telemetry.flush(timeout=1.0)
+        
+        files = [f for f in os.listdir(temp_dir) if f.endswith(".jsonl")]
+        assert len(files) == 1
+        
+        file_path = os.path.join(temp_dir, files[0])
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = [json.loads(line) for line in f if line.strip()]
+            
+        assert len(lines) >= 1
+        last = lines[-1]
+        assert last["operation"] == "async.op"
+        assert last["bytes_received"] == 1024
+    finally:
+        telemetry.shutdown(timeout=1.0)
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+def test_telemetry_queue_overflow_drops_gracefully():
+    telemetry.init_telemetry(events_dir=tempfile.gettempdir(), max_queue_size=2, flush_interval=10.0)
+    try:
+        initial_dropped = telemetry.get_dropped_count()
+        # Enche a fila alem da capacidade
+        for i in range(10):
+            with telemetry.span(f"overflow.{i}"):
+                pass
+                
+        # Deve ter descartado eventos sem lancar excecao
+        assert telemetry.get_dropped_count() > initial_dropped
+    finally:
+        telemetry.shutdown(timeout=0.5)
+
