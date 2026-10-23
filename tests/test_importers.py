@@ -7,6 +7,7 @@ from importers.asurascans import AsurascansImporter
 from importers.ravenscans import RavenscansImporter
 from importers.comix import ComixImporter
 from importers.manhuaus import ManhuausImporter
+from importers.arenascan import ArenascanImporter
 
 def test_registry_lists_domains():
     domains = get_registered_domains()
@@ -30,8 +31,13 @@ def test_registry_lists_domains():
     assert manhuaus["supported"] is True
     assert manhuaus["name"] == "ManhuaUS"
 
-    importer = get_importer("manhuaus.com")
-    assert isinstance(importer, ManhuausImporter)
+    arena = next((d for d in domains if d["domain"] == "arenascan.com"), None)
+    assert arena is not None
+    assert arena["supported"] is True
+    assert arena["name"] == "ArenaScan"
+
+    importer = get_importer("arenascan.com")
+    assert isinstance(importer, ArenascanImporter)
 
     unsupported = next((d for d in domains if d["domain"] == "mangafire.to"), None)
     assert unsupported is not None
@@ -268,5 +274,73 @@ def test_manhuaus_search_or_browse_execution(tmp_path):
         cached_result = importer.search_or_browse(page=1)
         assert not mock_run2.called
         assert cached_result["items"][0]["title"] == "Magic Emperor"
+
+def test_arenascan_parsing():
+    sample_html = """
+    <div class="listupd">
+      <div class="bs">
+        <div class="bsx">
+          <a href="https://arenascan.com/manga/a-regressors-tale-of-cultivation/" title="A Regressor’s Tale of Cultivation">
+            <div class="bigor">
+              <div class="tt">A Regressor’s Tale of Cultivation</div>
+              <div class="adds">
+                <div class="epxs">Chapter 35</div>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+      <div class="bs">
+        <div class="bsx">
+          <a href="https://arenascan.com/manga/after-rebirth-i-used-mirror-reversal-for-vengeance/" title="After Rebirth, I Used Mirror Reversal For Vengeance">
+            <div class="bigor">
+              <div class="tt">After Rebirth, I Used Mirror Reversal For Vengeance</div>
+              <div class="adds">
+                <div class="epxs">Chapter 71</div>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="pagination">
+      <span aria-current="page" class="page-numbers current">1</span>
+      <a class="page-numbers" href="/manga/?order=update&#038;page=2">2</a>
+      <span class="page-numbers dots">&hellip;</span>
+      <a class="page-numbers" href="/manga/?order=update&#038;page=259">259</a>
+      <a class="next page-numbers" href="/manga/?order=update&#038;page=2">Next</a>
+    </div>
+    """
+    importer = ArenascanImporter()
+    items, total_pages = importer._parse_html(sample_html)
+    assert len(items) == 2
+    assert items[0]["title"] == "A Regressor’s Tale of Cultivation"
+    assert items[0]["urlTemplate"] == "https://arenascan.com/a-regressors-tale-of-cultivation-chapter-{chapter}/"
+    assert items[0]["lastChapter"] == 35
+
+    assert items[1]["title"] == "After Rebirth, I Used Mirror Reversal For Vengeance"
+    assert items[1]["urlTemplate"] == "https://arenascan.com/after-rebirth-i-used-mirror-reversal-for-vengeance-chapter-{chapter}/"
+    assert items[1]["lastChapter"] == 71
+
+    assert total_pages == 259
+
+def test_arenascan_cache_ttl(tmp_path):
+    cache_file = tmp_path / "import_cache_arenascan_com.json"
+    importer = ArenascanImporter(cache_file=str(cache_file))
+
+    # Expired cache (8 days)
+    old_time = time.time() - (8 * 86400)
+    old_data = {"timestamp": old_time, "catalog": {}, "totalPages": {}}
+    with open(cache_file, "w") as f:
+        json.dump(old_data, f)
+    assert importer._is_cache_valid() is False
+
+    # Valid cache (3 days)
+    valid_time = time.time() - (3 * 86400)
+    old_data["timestamp"] = valid_time
+    with open(cache_file, "w") as f:
+        json.dump(old_data, f)
+    assert importer._is_cache_valid() is True
+
 
 

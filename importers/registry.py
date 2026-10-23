@@ -4,15 +4,16 @@ from importers.asurascans import AsurascansImporter
 from importers.ravenscans import RavenscansImporter
 from importers.comix import ComixImporter
 from importers.manhuaus import ManhuausImporter
+from importers.arenascan import ArenascanImporter
 
 DOMAINS_CATALOG = [
     {"domain": "asurascans.com", "name": "Asura Scans", "supported": True},
     {"domain": "ravenscans.org", "name": "RavenScans", "supported": True},
     {"domain": "comix.to", "name": "Comix", "supported": True},
     {"domain": "manhuaus.com", "name": "ManhuaUS", "supported": True},
+    {"domain": "arenascan.com", "name": "ArenaScan", "supported": True},
     {"domain": "mangafire.to", "name": "MangaFire", "supported": False},
     {"domain": "manhuatop.org", "name": "ManhuaTop", "supported": False},
-    {"domain": "arenascan.com", "name": "ArenaScan", "supported": False},
     {"domain": "mgeko.cc", "name": "MGeko", "supported": False},
     {"domain": "levelingwithgods.com", "name": "Leveling with Gods", "supported": False},
     {"domain": "pickmeupgacha.com", "name": "Pick Me Up Gacha", "supported": False},
@@ -24,6 +25,7 @@ _IMPORTERS = {
     "ravenscans.org": RavenscansImporter(),
     "comix.to": ComixImporter(),
     "manhuaus.com": ManhuausImporter(),
+    "arenascan.com": ArenascanImporter(),
 }
 
 def get_registered_domains() -> list[dict]:
