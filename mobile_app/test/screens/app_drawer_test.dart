@@ -91,6 +91,7 @@ void main() {
     expect(find.text('Manhua Manager'), findsOneWidget);
     expect(find.text('Downloads em Andamento'), findsOneWidget);
     expect(find.text('Armazenamento Offline'), findsOneWidget);
+    expect(find.text('Importar Obras'), findsOneWidget);
     expect(find.text('Organizar Obras'), findsOneWidget);
     expect(find.text('Configurações'), findsOneWidget);
     expect(find.text('Atualizar Lista'), findsOneWidget);
