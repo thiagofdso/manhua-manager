@@ -11,6 +11,7 @@ import time
 import subprocess
 import urllib.request
 import urllib.parse
+import telemetry
 from typing import Optional, Dict, Any, Tuple
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -372,34 +373,36 @@ def get_mangafire_chapter_data(target_url: str) -> Dict[str, Any]:
 
     Returns dict with images, chapter number, chapterId, prev, next.
     """
-    hid, chapter_param = parse_mangafire_url(target_url)
-    if not chapter_param:
-        raise ValueError(
-            f"Could not extract chapter parameter from URL: {target_url}"
-        )
+    with telemetry.span("chapter.extract", domain="mangafire.to") as s:
+        hid, chapter_param = parse_mangafire_url(target_url)
+        if not chapter_param:
+            raise ValueError(
+                f"Could not extract chapter parameter from URL: {target_url}"
+            )
 
-    chapter_id = resolve_chapter_id(hid, chapter_param)
-    if not chapter_id:
-        raise ValueError(
-            f"Could not resolve chapter ID for {chapter_param} in {target_url}"
-        )
+        chapter_id = resolve_chapter_id(hid, chapter_param)
+        if not chapter_id:
+            raise ValueError(
+                f"Could not resolve chapter ID for {chapter_param} in {target_url}"
+            )
 
-    ch_data = fetch_chapter_by_id(chapter_id)
+        ch_data = fetch_chapter_by_id(chapter_id)
 
-    raw_pages = ch_data.get("pages", [])
-    images = []
-    for page in raw_pages:
-        img_url = page.get("url") if isinstance(page, dict) else str(page)
-        if img_url:
-            images.append(img_url)
+        raw_pages = ch_data.get("pages", [])
+        images = []
+        for page in raw_pages:
+            img_url = page.get("url") if isinstance(page, dict) else str(page)
+            if img_url:
+                images.append(img_url)
 
-    return {
-        "status": "ok",
-        "count": len(images),
-        "images": images,
-        "chapter": ch_data.get("number"),
-        "chapterId": ch_data.get("id"),
-        "title": ch_data.get("title", {}).get("name", ""),
-        "prev": ch_data.get("prev"),
-        "next": ch_data.get("next"),
-    }
+        s.set_attribute("image_count", len(images))
+        return {
+            "status": "ok",
+            "count": len(images),
+            "images": images,
+            "chapter": ch_data.get("number"),
+            "chapterId": ch_data.get("id"),
+            "title": ch_data.get("title", {}).get("name", ""),
+            "prev": ch_data.get("prev"),
+            "next": ch_data.get("next"),
+        }

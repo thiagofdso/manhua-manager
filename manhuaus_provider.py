@@ -8,6 +8,7 @@ import json
 import re
 import shutil
 import subprocess
+import telemetry
 from typing import Optional, Dict, Any, Tuple
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -47,35 +48,38 @@ def get_cached_clearance() -> Optional[str]:
 
 def get_manhuaus_chapter_data(target_url: str) -> Dict[str, Any]:
     """Executes manhuaus_extractor.mjs in Xvfb and returns the chapter data."""
-    if not os.path.exists(SCRAPER_SCRIPT):
-        raise FileNotFoundError(f"Extractor script not found: {SCRAPER_SCRIPT}")
+    with telemetry.span("chapter.extract", domain="manhuaus.com") as s:
+        if not os.path.exists(SCRAPER_SCRIPT):
+            raise FileNotFoundError(f"Extractor script not found: {SCRAPER_SCRIPT}")
 
-    has_xvfb = shutil.which("xvfb-run") is not None
-    if has_xvfb:
-        cmd = ["xvfb-run", "-a", "node", SCRAPER_SCRIPT, target_url]
-    else:
-        cmd = ["node", SCRAPER_SCRIPT, target_url]
+        has_xvfb = shutil.which("xvfb-run") is not None
+        if has_xvfb:
+            cmd = ["xvfb-run", "-a", "node", SCRAPER_SCRIPT, target_url]
+        else:
+            cmd = ["node", SCRAPER_SCRIPT, target_url]
 
-    res = subprocess.run(cmd, capture_output=True, text=True, timeout=50)
-    if res.returncode != 0:
-        err_msg = res.stderr.strip() or res.stdout.strip() or "Unknown error"
-        raise RuntimeError(f"Manhuaus extractor failed with code {res.returncode}: {err_msg}")
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=50)
+        if res.returncode != 0:
+            err_msg = res.stderr.strip() or res.stdout.strip() or "Unknown error"
+            raise RuntimeError(f"Manhuaus extractor failed with code {res.returncode}: {err_msg}")
 
-    stdout = res.stdout.strip()
-    for line in stdout.splitlines()[::-1]:
-        line = line.strip()
-        if line.startswith("{") and line.endswith("}"):
-            try:
-                data = json.loads(line)
-                return {
-                    "status": "ok",
-                    "images": data.get("images", []),
-                    "chapter": data.get("number"),
-                    "next": data.get("next"),
-                    "prev": data.get("prev"),
-                    "clearance": data.get("clearance")
-                }
-            except json.JSONDecodeError:
-                continue
+        stdout = res.stdout.strip()
+        for line in stdout.splitlines()[::-1]:
+            line = line.strip()
+            if line.startswith("{") and line.endswith("}"):
+                try:
+                    data = json.loads(line)
+                    images = data.get("images", [])
+                    s.set_attribute("image_count", len(images))
+                    return {
+                        "status": "ok",
+                        "images": images,
+                        "chapter": data.get("number"),
+                        "next": data.get("next"),
+                        "prev": data.get("prev"),
+                        "clearance": data.get("clearance")
+                    }
+                except json.JSONDecodeError:
+                    continue
 
-    raise ValueError(f"Could not parse JSON from extractor output: {stdout[:300]}")
+        raise ValueError(f"Could not parse JSON from extractor output: {stdout[:300]}")

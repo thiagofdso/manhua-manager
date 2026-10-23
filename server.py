@@ -1059,11 +1059,13 @@ def proxy_image():
         if custom_cookie:
             headers["Cookie"] = custom_cookie
 
-        req = urllib.request.Request(img_url, headers=headers)
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            content = resp.read()
-            content_type = resp.headers.get("Content-Type", "image/jpeg")
-            return Response(content, mimetype=content_type, headers={"Cache-Control": "public, max-age=86400"})
+        with telemetry.span("image.proxy", domain=netloc) as span:
+            req = urllib.request.Request(img_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                content = resp.read()
+                span.set_attribute("bytes_received", len(content))
+                content_type = resp.headers.get("Content-Type", "image/jpeg")
+                return Response(content, mimetype=content_type, headers={"Cache-Control": "public, max-age=86400"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
