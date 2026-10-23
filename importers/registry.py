@@ -5,6 +5,7 @@ from importers.ravenscans import RavenscansImporter
 from importers.comix import ComixImporter
 from importers.manhuaus import ManhuausImporter
 from importers.arenascan import ArenascanImporter
+from importers.manhuatop import ManhuatopImporter
 
 DOMAINS_CATALOG = [
     {"domain": "asurascans.com", "name": "Asura Scans", "supported": True},
@@ -12,8 +13,8 @@ DOMAINS_CATALOG = [
     {"domain": "comix.to", "name": "Comix", "supported": True},
     {"domain": "manhuaus.com", "name": "ManhuaUS", "supported": True},
     {"domain": "arenascan.com", "name": "ArenaScan", "supported": True},
+    {"domain": "manhuatop.org", "name": "ManhuaTop", "supported": True},
     {"domain": "mangafire.to", "name": "MangaFire", "supported": False},
-    {"domain": "manhuatop.org", "name": "ManhuaTop", "supported": False},
     {"domain": "mgeko.cc", "name": "MGeko", "supported": False},
     {"domain": "levelingwithgods.com", "name": "Leveling with Gods", "supported": False},
     {"domain": "pickmeupgacha.com", "name": "Pick Me Up Gacha", "supported": False},
@@ -26,6 +27,7 @@ _IMPORTERS = {
     "comix.to": ComixImporter(),
     "manhuaus.com": ManhuausImporter(),
     "arenascan.com": ArenascanImporter(),
+    "manhuatop.org": ManhuatopImporter(),
 }
 
 def get_registered_domains() -> list[dict]:

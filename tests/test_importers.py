@@ -8,6 +8,7 @@ from importers.ravenscans import RavenscansImporter
 from importers.comix import ComixImporter
 from importers.manhuaus import ManhuausImporter
 from importers.arenascan import ArenascanImporter
+from importers.manhuatop import ManhuatopImporter
 
 def test_registry_lists_domains():
     domains = get_registered_domains()
@@ -36,8 +37,13 @@ def test_registry_lists_domains():
     assert arena["supported"] is True
     assert arena["name"] == "ArenaScan"
 
-    importer = get_importer("arenascan.com")
-    assert isinstance(importer, ArenascanImporter)
+    top = next((d for d in domains if d["domain"] == "manhuatop.org"), None)
+    assert top is not None
+    assert top["supported"] is True
+    assert top["name"] == "ManhuaTop"
+
+    importer = get_importer("manhuatop.org")
+    assert isinstance(importer, ManhuatopImporter)
 
     unsupported = next((d for d in domains if d["domain"] == "mangafire.to"), None)
     assert unsupported is not None
@@ -341,6 +347,70 @@ def test_arenascan_cache_ttl(tmp_path):
     with open(cache_file, "w") as f:
         json.dump(old_data, f)
     assert importer._is_cache_valid() is True
+
+def test_manhuatop_cache_ttl(tmp_path):
+    cache_file = tmp_path / "import_cache_manhuatop_org.json"
+    importer = ManhuatopImporter(cache_file=str(cache_file))
+
+    # Expired cache (8 days)
+    old_time = time.time() - (8 * 86400)
+    old_data = {"timestamp": old_time, "catalog": {}, "totalPages": {}}
+    with open(cache_file, "w") as f:
+        json.dump(old_data, f)
+    assert importer._is_cache_valid() is False
+
+    # Valid cache (3 days)
+    valid_time = time.time() - (3 * 86400)
+    old_data["timestamp"] = valid_time
+    with open(cache_file, "w") as f:
+        json.dump(old_data, f)
+    assert importer._is_cache_valid() is True
+
+def test_manhuatop_search_or_browse_execution(tmp_path):
+    cache_file = tmp_path / "import_cache_manhuatop_org.json"
+    fake_script = tmp_path / "manhuatop_catalog_extractor.mjs"
+    fake_script.write_text("// dummy")
+
+    importer = ManhuatopImporter(cache_file=str(cache_file), scraper_script=str(fake_script))
+
+    mock_json = {
+        "status": "ok",
+        "page": 1,
+        "totalPages": 113,
+        "items": [
+            {
+                "title": "Apex Future Martial Arts",
+                "urlTemplate": "https://manhuatop.org/manhua/apex-future-martial-arts/chapter-{chapter}/",
+                "lastChapter": 362
+            }
+        ]
+    }
+
+    mock_res = MagicMock()
+    mock_res.returncode = 0
+    mock_res.stdout = f"some log line\n{json.dumps(mock_json)}\n"
+
+    with patch("subprocess.run", return_value=mock_res) as mock_run:
+        result = importer.search_or_browse(page=1)
+        assert mock_run.called
+        assert len(result["items"]) == 1
+        assert result["items"][0]["title"] == "Apex Future Martial Arts"
+        assert result["totalPages"] == 113
+        assert result["page"] == 1
+
+    # Verify cache was written
+    assert os.path.exists(cache_file)
+    with open(cache_file, "r") as f:
+        saved_cache = json.load(f)
+    assert "catalog" in saved_cache
+    assert saved_cache["catalog"][""]["1"][0]["title"] == "Apex Future Martial Arts"
+
+    # Second call should hit cache and not call subprocess.run
+    with patch("subprocess.run") as mock_run2:
+        cached_result = importer.search_or_browse(page=1)
+        assert not mock_run2.called
+        assert cached_result["items"][0]["title"] == "Apex Future Martial Arts"
+
 
 
 
