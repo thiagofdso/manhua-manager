@@ -9,6 +9,7 @@ from importers.comix import ComixImporter
 from importers.manhuaus import ManhuausImporter
 from importers.arenascan import ArenascanImporter
 from importers.manhuatop import ManhuatopImporter
+from importers.mgeko import MgekoImporter
 
 def test_registry_lists_domains():
     domains = get_registered_domains()
@@ -42,8 +43,13 @@ def test_registry_lists_domains():
     assert top["supported"] is True
     assert top["name"] == "ManhuaTop"
 
-    importer = get_importer("manhuatop.org")
-    assert isinstance(importer, ManhuatopImporter)
+    mgeko = next((d for d in domains if d["domain"] == "mgeko.cc"), None)
+    assert mgeko is not None
+    assert mgeko["supported"] is True
+    assert mgeko["name"] == "MGeko"
+
+    importer = get_importer("mgeko.cc")
+    assert isinstance(importer, MgekoImporter)
 
     unsupported = next((d for d in domains if d["domain"] == "mangafire.to"), None)
     assert unsupported is not None
@@ -410,6 +416,62 @@ def test_manhuatop_search_or_browse_execution(tmp_path):
         cached_result = importer.search_or_browse(page=1)
         assert not mock_run2.called
         assert cached_result["items"][0]["title"] == "Apex Future Martial Arts"
+
+def test_mgeko_cache_ttl(tmp_path):
+    cache_file = tmp_path / "import_cache_mgeko_cc.json"
+    importer = MgekoImporter(cache_file=str(cache_file))
+
+    # Expired cache (8 days)
+    old_time = time.time() - (8 * 86400)
+    old_data = {"timestamp": old_time, "catalog": {}, "totalPages": {}}
+    with open(cache_file, "w") as f:
+        json.dump(old_data, f)
+    assert importer._is_cache_valid() is False
+
+    # Valid cache (3 days)
+    valid_time = time.time() - (3 * 86400)
+    old_data["timestamp"] = valid_time
+    with open(cache_file, "w") as f:
+        json.dump(old_data, f)
+    assert importer._is_cache_valid() is True
+
+def test_mgeko_parsing_and_details():
+    sample_results_html = """
+    <article class="comic-card">
+      <div class="comic-card__content">
+        <h3 class="comic-card__title">
+          <a href="/manga/cenv-the-glutton/">
+            The Glutton
+          </a>
+        </h3>
+      </div>
+    </article>
+    """
+    sample_detail_html = """
+    <html>
+      <body>
+        <li class="chapter-list-item">
+          <a href="/reader/en/cenv-the-glutton-chapter-53-eng-li/">
+            53-eng-li
+          </a>
+        </li>
+      </body>
+    </html>
+    """
+    importer = MgekoImporter()
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.text = sample_detail_html
+
+    with patch("requests.get", return_value=mock_resp):
+        items = importer._parse_results_html(sample_results_html)
+
+    assert len(items) == 1
+    assert items[0]["title"] == "The Glutton"
+    assert items[0]["urlTemplate"] == "https://www.mgeko.cc/reader/en/cenv-the-glutton-chapter-{chapter}-eng-li/"
+    assert items[0]["lastChapter"] == 53
+
 
 
 
