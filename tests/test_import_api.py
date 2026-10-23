@@ -102,3 +102,35 @@ def test_post_import_prevents_overwrite_and_sets_defaults(client):
     assert new_work["updateDay"] == 6         # Default Sunday (6)
     assert new_work["lastChapter"] == 20
     assert "{chapter}" in new_work["urlTemplate"]
+
+
+def test_browse_all_cache_endpoint(client, tmp_path):
+    from importers.registry import _IMPORTERS
+    from importers.all_cache import AllCacheImporter
+
+    # Mock AllCacheImporter pointing to tmp_path
+    c_data = {
+        "catalog": {
+            "": {"1": [
+                {"title": "Test Work From Cache", "urlTemplate": "https://test.com/chapter/{chapter}", "lastChapter": 12}
+            ]}
+        }
+    }
+    with open(tmp_path / "import_cache_asurascans_com.json", "w") as f:
+        json.dump(c_data, f)
+
+    original_importer = _IMPORTERS.get("all")
+    _IMPORTERS["all"] = AllCacheImporter(cache_dir=str(tmp_path))
+    try:
+        res = client.get("/api/import/browse?domain=all")
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["status"] == "ok"
+        assert len(data["items"]) == 1
+        assert data["items"][0]["title"] == "Test Work From Cache"
+        assert data["items"][0]["domainName"] == "Asura Scans"
+        assert "alreadyExists" in data["items"][0]
+    finally:
+        if original_importer:
+            _IMPORTERS["all"] = original_importer
+

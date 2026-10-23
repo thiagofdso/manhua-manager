@@ -137,12 +137,18 @@ def browse_import():
             title = item.get("title", "").lower().strip()
             already_exists = (url_tmpl in existing_urls) or (title in existing_titles)
 
-            annotated_items.append({
+            annotated_item = {
                 "title": item["title"],
                 "urlTemplate": item["urlTemplate"],
                 "lastChapter": item.get("lastChapter"),
                 "alreadyExists": already_exists
-            })
+            }
+            if "domain" in item:
+                annotated_item["domain"] = item["domain"]
+            if "domainName" in item:
+                annotated_item["domainName"] = item["domainName"]
+
+            annotated_items.append(annotated_item)
 
         return jsonify({
             "status": "ok",
